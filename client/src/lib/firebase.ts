@@ -18,6 +18,52 @@ export async function importProducts(productNames: string[]) {
   return response.json();
 }
 
+export async function getOrders(branch: string, date: string) {
+  try {
+    const safeBranch = branch.trim();
+    const safeDate = date.replace(/\./g, '_');
+    const url = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(safeDate)}?key=${FIREBASE_CONFIG.apiKey}`;
+    
+    const response = await fetch(url);
+    if (!response.ok) {
+      if (response.status === 404) return [];
+      throw new Error(`Firebase Error: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    const documents = data.documents || [];
+    
+    return documents.map((doc: any) => {
+      const fields = doc.fields || {};
+      const products = (fields.products?.arrayValue?.values || []).map((p: any) => {
+        const pf = p.mapValue?.fields || {};
+        return {
+          name: pf.name?.stringValue || "",
+          price: pf.price?.stringValue || "",
+          quantity: pf.quantity?.integerValue || "0",
+          note: pf.note?.stringValue || ""
+        };
+      });
+
+      return {
+        id: doc.name.split('/').pop(),
+        orderNumber: parseInt(fields.orderNumber?.integerValue || "0"),
+        customerName: fields.customerName?.stringValue || "",
+        customerPhone: fields.customerPhone?.stringValue || "",
+        paymentStatus: fields.paymentStatus?.stringValue || "Unpaid",
+        reportType: fields.reportType?.stringValue || "",
+        date: fields.date?.stringValue || "",
+        note: fields.note?.stringValue || "",
+        createdAt: fields.createdAt?.stringValue || "",
+        products
+      };
+    }).sort((a: any, b: any) => a.orderNumber - b.orderNumber);
+  } catch (err) {
+    console.error("Chyba pri získavaní objednávok:", err);
+    throw err;
+  }
+}
+
 export async function getPrevadzky() {
   const url = `${ADMIN_CONFIG.firestoreBaseUrl}/Global/Prevadzky?key=${FIREBASE_CONFIG.apiKey}`;
   const response = await fetch(url);

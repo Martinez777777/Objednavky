@@ -1,7 +1,7 @@
 import { MinimalButton } from "@/components/MinimalButton";
 import { motion, AnimatePresence } from "framer-motion";
 import { MENU_ITEMS, ADMIN_CONFIG } from "@shared/config";
-import { getAdminCode, getPrevadzky, importProducts, getDatumy, getProducts, getNextOrderNumber, submitOrder } from "@/lib/firebase";
+import { getAdminCode, getPrevadzky, importProducts, getDatumy, getProducts, getNextOrderNumber, submitOrder, getOrders } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { 
@@ -9,7 +9,8 @@ import {
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
-  DialogFooter 
+  DialogFooter,
+  DialogDescription
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -64,6 +65,8 @@ export default function Home() {
   const [orderNote, setOrderNote] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isOrdersOverviewOpen, setIsOrdersOverviewOpen] = useState(false);
+  const [orders, setOrders] = useState<any[]>([]);
 
   useEffect(() => {
     if (successMessage) {
@@ -173,6 +176,25 @@ export default function Home() {
         toast({
           title: "Chyba",
           description: `Nepodarilo sa pripraviť novú objednávku: ${error.message || 'Neznáma chyba'}`,
+          variant: "destructive",
+        });
+      } finally {
+        setIsPending(false);
+      }
+      setPendingAction(null);
+      return;
+    }
+
+    if (pendingAction === "Prehľad objednávok") {
+      setIsPending(true);
+      try {
+        const fetchedOrders = await getOrders(activeBranch!, date);
+        setOrders(fetchedOrders);
+        setIsOrdersOverviewOpen(true);
+      } catch (error: any) {
+        toast({
+          title: "Chyba",
+          description: "Nepodarilo sa načítať objednávky.",
           variant: "destructive",
         });
       } finally {
@@ -747,6 +769,86 @@ export default function Home() {
           <div className="py-4 text-slate-700 font-medium text-center text-lg">
             {successMessage}
           </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={isOrdersOverviewOpen} onOpenChange={setIsOrdersOverviewOpen}>
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto bg-white">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-2xl font-bold">
+              <Package className="w-6 h-6 text-primary" />
+              Prehľad objednávok - {selectedDate}
+            </DialogTitle>
+            <DialogDescription>
+              Zoznam všetkých objednávok pre prevádzku {activeBranch}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            {orders.length === 0 ? (
+              <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed">
+                <Package className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <p className="text-slate-500 font-medium">Žiadne objednávky pre tento dátum.</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {orders.map((order) => (
+                  <div key={order.id} className="p-4 rounded-xl border bg-card hover:shadow-md transition-shadow space-y-3">
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg font-bold text-primary">#{order.orderNumber}</span>
+                          <h3 className="font-bold text-slate-900">{order.customerName}</h3>
+                        </div>
+                        <p className="text-sm text-slate-500 flex items-center gap-1">
+                          <Phone className="w-3 h-3" /> {order.customerPhone}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                          order.paymentStatus === "Paid" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
+                        }`}>
+                          {order.paymentStatus === "Paid" ? "Zaplatené" : "Nezaplatené"}
+                        </span>
+                        <span className="text-[10px] font-medium text-slate-400">
+                          {new Date(order.createdAt).toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t">
+                      <div className="space-y-2">
+                        <p className="text-[10px] font-bold uppercase text-slate-400">Položky</p>
+                        <ul className="space-y-1">
+                          {order.products.map((p: any, i: number) => (
+                            <li key={i} className="text-sm flex justify-between gap-4">
+                              <span className="text-slate-700 font-medium">
+                                {p.quantity}x {p.name}
+                              </span>
+                              {p.note && <span className="text-xs text-slate-400 italic">({p.note})</span>}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      {order.note && (
+                        <div className="space-y-2">
+                          <p className="text-[10px] font-bold uppercase text-slate-400">Poznámka</p>
+                          <p className="text-sm text-slate-600 bg-slate-50 p-2 rounded border italic">
+                            {order.note}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button onClick={() => setIsOrdersOverviewOpen(false)} className="w-full sm:w-auto">
+              Zavrieť
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
