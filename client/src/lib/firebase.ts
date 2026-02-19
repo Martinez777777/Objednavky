@@ -18,6 +18,67 @@ export async function importProducts(productNames: string[]) {
   return response.json();
 }
 
+export async function deleteOrder(branch: string, date: string, orderId: string) {
+  const safeBranch = branch.trim();
+  const safeDate = date.replace(/\./g, '_');
+  const url = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(safeDate)}/${orderId}?key=${FIREBASE_CONFIG.apiKey}`;
+  
+  const response = await fetch(url, {
+    method: 'DELETE',
+  });
+  
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(`Firebase Error: ${errorData.error?.message || response.statusText}`);
+  }
+  return true;
+}
+
+export async function updateOrder(branch: string, date: string, orderId: string, orderData: any) {
+  const safeBranch = branch.trim();
+  const safeDate = date.replace(/\./g, '_');
+  const url = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(safeDate)}/${orderId}?key=${FIREBASE_CONFIG.apiKey}`;
+  
+  const payload = {
+    fields: {
+      orderNumber: { integerValue: String(orderData.orderNumber) },
+      customerName: { stringValue: orderData.customerName || "" },
+      customerPhone: { stringValue: orderData.customerPhone || "" },
+      paymentStatus: { stringValue: orderData.paymentStatus || "Unpaid" },
+      reportType: { stringValue: orderData.reportType || "" },
+      date: { stringValue: date || "" },
+      note: { stringValue: orderData.note || "" },
+      createdAt: { stringValue: orderData.createdAt || new Date().toISOString() },
+      products: {
+        arrayValue: {
+          values: (orderData.products || []).map((p: any) => ({
+            mapValue: {
+              fields: {
+                name: { stringValue: p.name || "" },
+                price: { stringValue: p.price || "" },
+                quantity: { integerValue: String(p.quantity || "0") },
+                note: { stringValue: p.note || "" }
+              }
+            }
+          }))
+        }
+      }
+    }
+  };
+
+  const response = await fetch(url, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(`Firebase Error: ${errorData.error?.message || response.statusText}`);
+  }
+  return response.json();
+}
+
 export async function getOrders(branch: string, date: string) {
   try {
     const safeBranch = branch.trim();

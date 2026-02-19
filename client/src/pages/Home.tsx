@@ -1,7 +1,7 @@
 import { MinimalButton } from "@/components/MinimalButton";
 import { motion, AnimatePresence } from "framer-motion";
 import { MENU_ITEMS, ADMIN_CONFIG } from "@shared/config";
-import { getAdminCode, getPrevadzky, importProducts, getDatumy, getProducts, getNextOrderNumber, submitOrder, getOrders } from "@/lib/firebase";
+import { getAdminCode, getPrevadzky, importProducts, getDatumy, getProducts, getNextOrderNumber, submitOrder, getOrders, deleteOrder, updateOrder } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { 
@@ -15,7 +15,17 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { LogOut, Check, Calendar, Plus, User, Phone, Package, Trash2 } from "lucide-react";
+import { LogOut, Check, Calendar, Plus, User, Phone, Package, Trash2, Edit2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   Select,
   SelectContent,
@@ -67,6 +77,10 @@ export default function Home() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isOrdersOverviewOpen, setIsOrdersOverviewOpen] = useState(false);
   const [orders, setOrders] = useState<any[]>([]);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [orderToDelete, setOrderToDelete] = useState<any>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     if (successMessage) {
@@ -251,26 +265,88 @@ export default function Home() {
 
     setIsPending(true);
     try {
-      await submitOrder(activeBranch!, selectedDate!, {
-        orderNumber,
-        customerName,
-        customerPhone,
-        paymentStatus,
-        reportType,
-        products: orderProducts,
-        note: orderNote
-      });
+      if (isEditing && editingOrderId) {
+        await updateOrder(activeBranch!, selectedDate!, editingOrderId, {
+          orderNumber,
+          customerName,
+          customerPhone,
+          paymentStatus,
+          reportType,
+          products: orderProducts,
+          note: orderNote
+        });
+        setSuccessMessage("Objednávka bola upravená");
+        // Refresh orders if overview is open
+        if (isOrdersOverviewOpen) {
+          const fetchedOrders = await getOrders(activeBranch!, selectedDate!);
+          setOrders(fetchedOrders);
+        }
+      } else {
+        await submitOrder(activeBranch!, selectedDate!, {
+          orderNumber,
+          customerName,
+          customerPhone,
+          paymentStatus,
+          reportType,
+          products: orderProducts,
+          note: orderNote
+        });
+        setSuccessMessage("Objednávka je uložená");
+      }
       setIsNewOrderDialogOpen(false);
-      setSuccessMessage("Objednávka je uložená");
+      setIsEditing(false);
+      setEditingOrderId(null);
       setPaymentStatus(null);
       setReportType(null);
       setCustomerName("");
       setCustomerPhone("");
       setOrderNote("");
     } catch (error: any) {
-      toast({ title: "Chyba", description: "Nepodarilo sa uložiť objednávku.", variant: "destructive" });
+      toast({ title: "Chyba", description: `Nepodarilo sa ${isEditing ? 'upraviť' : 'uložiť'} objednávku.`, variant: "destructive" });
     } finally {
       setIsPending(false);
+    }
+  };
+
+  const handleEditOrder = async (order: any) => {
+    setIsPending(true);
+    try {
+      const products = await getProducts();
+      setAvailableProducts(products);
+      
+      setOrderNumber(order.orderNumber);
+      setCustomerName(order.customerName);
+      setCustomerPhone(order.customerPhone);
+      setPaymentStatus(order.paymentStatus);
+      setReportType(order.reportType);
+      setOrderNote(order.note);
+      setOrderProducts(order.products);
+      
+      setEditingOrderId(order.id);
+      setIsEditing(true);
+      setValidationError(null);
+      setIsNewOrderDialogOpen(true);
+    } catch (error: any) {
+      toast({ title: "Chyba", description: "Nepodarilo sa načítať dáta pre úpravu.", variant: "destructive" });
+    } finally {
+      setIsPending(false);
+    }
+  };
+
+  const handleDeleteOrder = async () => {
+    if (!orderToDelete) return;
+    setIsPending(true);
+    try {
+      await deleteOrder(activeBranch!, selectedDate!, orderToDelete.id);
+      const fetchedOrders = await getOrders(activeBranch!, selectedDate!);
+      setOrders(fetchedOrders);
+      toast({ title: "Zmazané", description: "Objednávka bola úspešne zmazaná." });
+    } catch (error: any) {
+      toast({ title: "Chyba", description: "Nepodarilo sa zmazať objednávku.", variant: "destructive" });
+    } finally {
+      setIsPending(false);
+      setIsDeleteDialogOpen(false);
+      setOrderToDelete(null);
     }
   };
 
@@ -541,12 +617,18 @@ export default function Home() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isNewOrderDialogOpen} onOpenChange={setIsNewOrderDialogOpen}>
+      <Dialog open={isNewOrderDialogOpen} onOpenChange={(open) => {
+        setIsNewOrderDialogOpen(open);
+        if (!open) {
+          setIsEditing(false);
+          setEditingOrderId(null);
+        }
+      }}>
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Plus className="w-5 h-5 text-primary" />
-              Nová objednávka
+              {isEditing ? <Edit2 className="w-5 h-5 text-primary" /> : <Plus className="w-5 h-5 text-primary" />}
+              {isEditing ? "Upraviť objednávku" : "Nová objednávka"}
             </DialogTitle>
           </DialogHeader>
           
@@ -705,11 +787,36 @@ export default function Home() {
               Zrušiť
             </Button>
             <Button onClick={handleSubmitOrder} disabled={isPending} className="flex-1">
-              {isPending ? "Ukladám..." : "Uložiť objednávku"}
+              {isPending ? "Ukladám..." : isEditing ? "Uložiť zmeny" : "Uložiť objednávku"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent className="bg-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Naozaj chcete zmazať túto objednávku?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Táto akcia je nevratná. Objednávka #{orderToDelete?.orderNumber} pre zákazníka {orderToDelete?.customerName} bude natrvalo odstránená.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Zrušiť</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteOrder();
+              }} 
+              disabled={isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isPending ? "Mažem..." : "Zmazať objednávku"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
         <DialogContent className="sm:max-w-md bg-white">
           <DialogHeader>
@@ -804,6 +911,27 @@ export default function Home() {
                         </p>
                       </div>
                       <div className="flex flex-col items-end gap-2">
+                        <div className="flex gap-2">
+                          <Button 
+                            size="icon" 
+                            variant="ghost" 
+                            className="h-8 w-8 text-slate-400 hover:text-primary"
+                            onClick={() => handleEditOrder(order)}
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </Button>
+                          <Button 
+                            size="icon" 
+                            variant="ghost" 
+                            className="h-8 w-8 text-slate-400 hover:text-destructive"
+                            onClick={() => {
+                              setOrderToDelete(order);
+                              setIsDeleteDialogOpen(true);
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                         <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                           order.paymentStatus === "Paid" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
                         }`}>
