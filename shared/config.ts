@@ -46,6 +46,6 @@ export const MENU_ITEMS = [
 ];
 
 export const ADMIN_CONFIG = {
-  code: "123",
+  code: "12345",
   firestoreBaseUrl: "https://firestore.googleapis.com/v1/projects/objednavky-368a0/databases/(default)/documents"
 };

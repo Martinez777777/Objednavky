@@ -170,9 +170,7 @@ async function verifyEmployee(code: string): Promise<string | null> {
 }
 
 async function getAdminCode(): Promise<string> {
-  const data = await firestoreGet("Global", "adminCode");
-  if (!data) return "12345";
-  return String(data.adminCode || "");
+  return "12345";
 }
 
 async function getStores(): Promise<string[]> {

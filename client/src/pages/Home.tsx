@@ -943,6 +943,7 @@ export default function Home() {
                             variant="ghost" 
                             className="h-8 w-8 text-slate-400 hover:text-primary"
                             onClick={() => handleEditOrder(order)}
+                            data-testid={`button-edit-order-${order.id}`}
                           >
                             <Edit2 className="w-4 h-4" />
                           </Button>
@@ -954,13 +955,16 @@ export default function Home() {
                               setOrderToDelete(order);
                               setIsDeleteDialogOpen(true);
                             }}
+                            data-testid={`button-delete-order-${order.id}`}
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
                         <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
                           order.paymentStatus === "Paid" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
-                        }`}>
+                        }`}
+                        data-testid={`status-payment-${order.id}`}
+                        >
                           {order.paymentStatus === "Paid" ? "Zaplatené" : "Nezaplatené"}
                         </span>
                         <span className="text-[10px] font-medium text-slate-400">
@@ -975,7 +979,7 @@ export default function Home() {
                         <ul className="space-y-1">
                           {order.products.map((p: any, i: number) => (
                             <li key={i} className="text-sm flex justify-between gap-4">
-                              <span className="text-slate-700 font-medium">
+                              <span className="text-slate-700 font-medium" data-testid={`text-product-${order.id}-${i}`}>
                                 {p.quantity}x {p.name}
                               </span>
                               {p.note && <span className="text-xs text-slate-400 italic">({p.note})</span>}
@@ -986,7 +990,7 @@ export default function Home() {
                       {order.note && (
                         <div className="space-y-2">
                           <p className="text-[10px] font-bold uppercase text-slate-400">Poznámka</p>
-                          <p className="text-sm text-slate-600 bg-slate-50 p-2 rounded border italic">
+                          <p className="text-sm text-slate-600 bg-slate-50 p-2 rounded border italic" data-testid={`text-note-${order.id}`}>
                             {order.note}
                           </p>
                         </div>
