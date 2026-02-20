@@ -15,7 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { LogOut, Check, Calendar, Plus, User, Phone, Package, Trash2, Edit2 } from "lucide-react";
+import { LogOut, Check, Calendar, Plus, User, Phone, Package, Trash2, Edit2, Search } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -77,6 +77,7 @@ export default function Home() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isOrdersOverviewOpen, setIsOrdersOverviewOpen] = useState(false);
   const [orders, setOrders] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState<any>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -890,15 +891,35 @@ export default function Home() {
             </DialogDescription>
           </DialogHeader>
           
-          <div className="py-4">
-            {orders.length === 0 ? (
+          <div className="py-4 space-y-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input
+                placeholder="Hľadať podľa mena alebo čísla objednávky..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 h-11 bg-slate-50 border-slate-200 focus:bg-white transition-colors"
+              />
+            </div>
+
+            {orders.filter(order => 
+              order.customerName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+              order.orderNumber.toString().includes(searchQuery)
+            ).length === 0 ? (
               <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed">
                 <Package className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                <p className="text-slate-500 font-medium">Žiadne objednávky pre tento dátum.</p>
+                <p className="text-slate-500 font-medium">
+                  {searchQuery ? "Nenašli sa žiadne objednávky vyhovujúce vyhľadávaniu." : "Žiadne objednávky pre tento dátum."}
+                </p>
               </div>
             ) : (
               <div className="space-y-4">
-                {orders.map((order) => (
+                {orders
+                  .filter(order => 
+                    order.customerName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                    order.orderNumber.toString().includes(searchQuery)
+                  )
+                  .map((order) => (
                   <div key={order.id} className="p-4 rounded-xl border bg-card hover:shadow-md transition-shadow space-y-3">
                     <div className="flex items-start justify-between">
                       <div className="space-y-1">
