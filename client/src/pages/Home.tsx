@@ -879,7 +879,12 @@ export default function Home() {
           </div>
         </DialogContent>
       </Dialog>
-      <Dialog open={isOrdersOverviewOpen} onOpenChange={setIsOrdersOverviewOpen}>
+      <Dialog open={isOrdersOverviewOpen} onOpenChange={(open) => {
+        setIsOrdersOverviewOpen(open);
+        if (!open) {
+          setSearchQuery("");
+        }
+      }}>
         <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto bg-white">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-2xl font-bold">
