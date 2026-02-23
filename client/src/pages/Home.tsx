@@ -141,7 +141,7 @@ export default function Home() {
           target[p.name] = (target[p.name] || 0) + qty;
           if (p.note && p.note.trim()) {
             if (!notesTarget[p.name]) notesTarget[p.name] = [];
-            notesTarget[p.name].push(p.note.trim());
+            notesTarget[p.name].push(`#${order.orderNumber} ${order.customerName}: ${p.note.trim()}`);
           }
         }
       });
