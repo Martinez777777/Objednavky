@@ -1146,7 +1146,7 @@ export default function Home() {
                               <span className="text-slate-700 font-medium" data-testid={`text-product-${order.id}-${i}`}>
                                 {p.quantity}x {p.name}
                               </span>
-                              {p.note && <span className="text-xs text-slate-400 italic">({p.note})</span>}
+                              {p.note && <span className="text-sm text-slate-500 font-medium italic">({p.note})</span>}
                             </li>
                           ))}
                         </ul>
