@@ -20,8 +20,8 @@ export async function importProducts(productNames: string[]) {
 
 export async function deleteOrder(branch: string, date: string, orderId: string) {
   const safeBranch = branch.trim();
-  const safeDate = date.replace(/\./g, '_');
-  const url = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(safeDate)}/${orderId}?key=${FIREBASE_CONFIG.apiKey}`;
+  // Štruktúra: Prevádzka -> Objednavky -> Vybraný dátum -> Zadaná objednávka
+  const url = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}/${orderId}?key=${FIREBASE_CONFIG.apiKey}`;
   
   const response = await fetch(url, {
     method: 'DELETE',
@@ -36,8 +36,8 @@ export async function deleteOrder(branch: string, date: string, orderId: string)
 
 export async function updateOrder(branch: string, date: string, orderId: string, orderData: any) {
   const safeBranch = branch.trim();
-  const safeDate = date.replace(/\./g, '_');
-  const url = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(safeDate)}/${orderId}?key=${FIREBASE_CONFIG.apiKey}`;
+  // Štruktúra: Prevádzka -> Objednavky -> Vybraný dátum -> Zadaná objednávka
+  const url = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}/${orderId}?key=${FIREBASE_CONFIG.apiKey}`;
   
   const payload = {
     fields: {

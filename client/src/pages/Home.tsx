@@ -336,6 +336,11 @@ export default function Home() {
 
   const handleDeleteOrder = async () => {
     if (!orderToDelete) return;
+    setPendingAction("DELETE_ORDER");
+    setIsAdminDialogOpen(true);
+  };
+
+  const confirmDeleteOrder = async () => {
     setIsPending(true);
     try {
       await deleteOrder(activeBranch!, selectedDate!, orderToDelete.id);
@@ -348,6 +353,7 @@ export default function Home() {
       setIsPending(false);
       setIsDeleteDialogOpen(false);
       setOrderToDelete(null);
+      setPendingAction(null);
     }
   };
 
@@ -448,6 +454,12 @@ export default function Home() {
         setIsAuthorized(true);
         setIsAdminDialogOpen(false);
         setAdminInput("");
+        
+        if (pendingAction === "DELETE_ORDER") {
+          confirmDeleteOrder();
+          return;
+        }
+
         if (pendingAction) {
           executeAction(pendingAction);
           setPendingAction(null);
