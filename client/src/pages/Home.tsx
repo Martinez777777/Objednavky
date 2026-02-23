@@ -1,6 +1,14 @@
 import { MinimalButton } from "@/components/MinimalButton";
 import { motion, AnimatePresence } from "framer-motion";
-import { MENU_ITEMS, ADMIN_CONFIG } from "@shared/config";
+const MENU_ITEMS = [
+  { label: "Nová objednávka", icon: "PlusCircle", id: "new_order" },
+  { label: "Prehľad objednávok", icon: "ClipboardList", id: "order_overview" },
+  { label: "Vydané objednávky", icon: "CheckCircle2", id: "delivered_orders" },
+  { label: "Nevydané objednávky", icon: "Clock", id: "pending_orders" },
+  { label: "Objednávky na ODBYT", icon: "ShoppingCart", id: "sales_orders" },
+  { label: "Výber prevádzky", icon: "Store", id: "select_branch" },
+  { label: "Import položiek", icon: "FileDown", id: "import_items" }
+];
 import { getAdminCode, getPrevadzky, importProducts, getDatumy, getProducts, getNextOrderNumber, submitOrder, getOrders, deleteOrder, updateOrder } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";

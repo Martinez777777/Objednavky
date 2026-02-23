@@ -1,7 +1,6 @@
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import * as LucideIcons from "lucide-react";
-import { MENU_ITEMS } from "@shared/config";
 
 interface MinimalButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   label: string;
@@ -20,7 +19,6 @@ const iconMap: Record<string, LucideIcons.LucideIcon> = {
 };
 
 export function MinimalButton({ label, index, className, ...props }: MinimalButtonProps) {
-  const menuItem = MENU_ITEMS.find(item => item.label === label);
   const Icon = iconMap[label] || LucideIcons.PlusCircle;
 
   return (

@@ -3,8 +3,8 @@ import * as ftp from 'basic-ftp';
 import * as XLSX from 'xlsx';
 import { Readable } from 'stream';
 
-const FIREBASE_PROJECT_ID = 'dochadzka-web';
-const FIREBASE_API_KEY = 'AIzaSyDy_MzgOTL67A6P08UtptHVpcdpYik6Fgc';
+const FIREBASE_PROJECT_ID = 'objednavky-368a0';
+const FIREBASE_API_KEY = 'AIzaSyBmy8-NxboLGJBPRQ5yR9dC-mRmeVThKFI';
 
 async function firestoreGet(collectionId: string, documentId: string): Promise<any> {
   const url = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents/${collectionId}/${documentId}?key=${FIREBASE_API_KEY}`;

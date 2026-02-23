@@ -1,7 +1,9 @@
-import { FIREBASE_CONFIG, ADMIN_CONFIG } from "@shared/config";
+const FIREBASE_API_KEY = "AIzaSyBmy8-NxboLGJBPRQ5yR9dC-mRmeVThKFI";
+const FIREBASE_PROJECT_ID = "objednavky-368a0";
+const FIRESTORE_BASE_URL = `https://firestore.googleapis.com/v1/projects/${FIREBASE_PROJECT_ID}/databases/(default)/documents`;
 
 export async function importProducts(productNames: string[]) {
-  const url = `${ADMIN_CONFIG.firestoreBaseUrl}/Global/Produkty?key=${FIREBASE_CONFIG.apiKey}`;
+  const url = `${FIRESTORE_BASE_URL}/Global/Produkty?key=${FIREBASE_API_KEY}`;
   const fields: any = {};
   productNames.forEach((name, index) => {
     fields[`p${index}`] = { stringValue: name };
@@ -20,8 +22,7 @@ export async function importProducts(productNames: string[]) {
 
 export async function deleteOrder(branch: string, date: string, orderId: string) {
   const safeBranch = branch.trim();
-  // Štruktúra: Prevádzka -> Objednavky -> Vybraný dátum -> Zadaná objednávka
-  const url = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}/${orderId}?key=${FIREBASE_CONFIG.apiKey}`;
+  const url = `${FIRESTORE_BASE_URL}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}/${orderId}?key=${FIREBASE_API_KEY}`;
   
   const response = await fetch(url, {
     method: 'DELETE',
@@ -36,8 +37,7 @@ export async function deleteOrder(branch: string, date: string, orderId: string)
 
 export async function updateOrder(branch: string, date: string, orderId: string, orderData: any) {
   const safeBranch = branch.trim();
-  // Štruktúra: Prevádzka -> Objednavky -> Vybraný dátum -> Zadaná objednávka
-  const url = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}/${orderId}?key=${FIREBASE_CONFIG.apiKey}`;
+  const url = `${FIRESTORE_BASE_URL}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}/${orderId}?key=${FIREBASE_API_KEY}`;
   
   const payload = {
     fields: {
@@ -83,8 +83,7 @@ export async function updateOrder(branch: string, date: string, orderId: string,
 export async function getOrders(branch: string, date: string) {
   try {
     const safeBranch = branch.trim();
-    // Štruktúra: Prevádzka -> Objednavky -> Vybraný dátum
-    const url = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}?key=${FIREBASE_CONFIG.apiKey}`;
+    const url = `${FIRESTORE_BASE_URL}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}?key=${FIREBASE_API_KEY}`;
     
     console.log("Načítavam objednávky z:", url);
     const response = await fetch(url);
@@ -94,8 +93,7 @@ export async function getOrders(branch: string, date: string) {
       return data.documents.map(parseOrderDocument).sort((a: any, b: any) => a.orderNumber - b.orderNumber);
     }
 
-    // Záložná cesta (pre staršie dáta): Prevádzka -> Dátum -> Objednavky
-    const altUrl = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/${encodeURIComponent(date)}/Objednavky?key=${FIREBASE_CONFIG.apiKey}`;
+    const altUrl = `${FIRESTORE_BASE_URL}/${encodeURIComponent(safeBranch)}/${encodeURIComponent(date)}/Objednavky?key=${FIREBASE_API_KEY}`;
     console.log("Skúšam záložnú cestu:", altUrl);
     const altResponse = await fetch(altUrl);
     const altData = await altResponse.json();
@@ -140,7 +138,7 @@ function parseOrderDocument(doc: any) {
 
 
 export async function getAdminCode() {
-  const url = `${ADMIN_CONFIG.firestoreBaseUrl}/Global/adminCode?key=${FIREBASE_CONFIG.apiKey}`;
+  const url = `${FIRESTORE_BASE_URL}/Global/adminCode?key=${FIREBASE_API_KEY}`;
   const response = await fetch(url);
   if (!response.ok) {
     if (response.status === 404) return "12345";
@@ -152,7 +150,7 @@ export async function getAdminCode() {
 }
 
 export async function getPrevadzky() {
-  const url = `${ADMIN_CONFIG.firestoreBaseUrl}/Global/Prevadzky?key=${FIREBASE_CONFIG.apiKey}`;
+  const url = `${FIRESTORE_BASE_URL}/Global/Prevadzky?key=${FIREBASE_API_KEY}`;
   const response = await fetch(url);
   if (!response.ok) {
     const errorData = await response.json();
@@ -161,7 +159,6 @@ export async function getPrevadzky() {
   const data = await response.json();
   const fields = data.fields || {};
   
-  // Sort fields by key to maintain consistent order (p0, p1, p2...)
   const sortedKeys = Object.keys(fields).sort((a, b) => {
     const numA = parseInt(a.replace('p', ''));
     const numB = parseInt(b.replace('p', ''));
@@ -172,7 +169,7 @@ export async function getPrevadzky() {
 }
 
 export async function getDatumy() {
-  const url = `${ADMIN_CONFIG.firestoreBaseUrl}/Global/Datumy?key=${FIREBASE_CONFIG.apiKey}`;
+  const url = `${FIRESTORE_BASE_URL}/Global/Datumy?key=${FIREBASE_API_KEY}`;
   const response = await fetch(url);
   if (!response.ok) {
     const errorData = await response.json();
@@ -181,11 +178,9 @@ export async function getDatumy() {
   const data = await response.json();
   const fields = data.fields || {};
   
-  // Načítame všetky hodnoty a zoradíme ich
   const dateValues = Object.values(fields).map((f: any) => f.stringValue).filter(Boolean);
   
   return dateValues.sort((a, b) => {
-    // Predpokladáme formát DD.MM.YY ...
     const partA = a.split(' ')[0].split('.');
     const partB = b.split(' ')[0].split('.');
     
@@ -197,7 +192,7 @@ export async function getDatumy() {
 }
 
 export async function getProducts() {
-  const url = `${ADMIN_CONFIG.firestoreBaseUrl}/Global/Produkty?key=${FIREBASE_CONFIG.apiKey}`;
+  const url = `${FIRESTORE_BASE_URL}/Global/Produkty?key=${FIREBASE_API_KEY}`;
   const response = await fetch(url);
   if (!response.ok) {
     const errorData = await response.json();
@@ -208,7 +203,6 @@ export async function getProducts() {
   
   const products: { name: string; price: string }[] = [];
   
-  // Sort keys (p0, p1, p2...) numerically
   const sortedKeys = Object.keys(fields).sort((a, b) => {
     const numA = parseInt(a.replace('p', ''));
     const numB = parseInt(b.replace('p', ''));
@@ -219,9 +213,6 @@ export async function getProducts() {
     const productField = fields[key];
     if (productField && productField.stringValue) {
       const fullString = productField.stringValue;
-      // User wants format "Name - Price€" directly from the string
-      // If the string contains " - ", we can split it for internal logic,
-      // but the requirement is to display it as is.
       const parts = fullString.split(" - ");
       if (parts.length >= 2) {
         products.push({ 
@@ -243,8 +234,7 @@ export async function getProducts() {
 export async function getNextOrderNumber(branch: string, date: string) {
   try {
     const orders = await getOrders(branch, date);
-    // Nájdeme najvyššie číslo objednávky a pripočítame 1
-    const maxNumber = orders.reduce((max, order) => Math.max(max, order.orderNumber || 0), 0);
+    const maxNumber = orders.reduce((max: number, order: any) => Math.max(max, order.orderNumber || 0), 0);
     return maxNumber + 1;
   } catch (err) {
     console.error("Chyba pri získavaní čísla objednávky:", err);
@@ -283,8 +273,7 @@ export async function submitOrder(branch: string, date: string, orderData: any) 
     }
   };
 
-  // Ukladáme do cesty: Prevádzka -> Objednavky -> Vybraný dátum -> Zadaná objednávka
-  const url = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}/${docId}?key=${FIREBASE_CONFIG.apiKey}`;
+  const url = `${FIRESTORE_BASE_URL}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}/${docId}?key=${FIREBASE_API_KEY}`;
   
   try {
     const response = await fetch(url, {
@@ -302,4 +291,3 @@ export async function submitOrder(branch: string, date: string, orderData: any) 
     throw err;
   }
 }
-
