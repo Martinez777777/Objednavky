@@ -82,8 +82,8 @@ export async function updateOrder(branch: string, date: string, orderId: string,
 export async function getOrders(branch: string, date: string) {
   try {
     const safeBranch = branch.trim();
-    const safeDate = date.replace(/\./g, '_');
-    const url = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(safeDate)}?key=${FIREBASE_CONFIG.apiKey}`;
+    // Use the date string directly as it contains spaces (e.g., "22.01.26 Utorok")
+    const url = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}?key=${FIREBASE_CONFIG.apiKey}`;
     
     const response = await fetch(url);
     if (!response.ok) {
@@ -125,6 +125,18 @@ export async function getOrders(branch: string, date: string) {
   }
 }
 
+export async function getAdminCode() {
+  const url = `${ADMIN_CONFIG.firestoreBaseUrl}/Global/adminCode?key=${FIREBASE_CONFIG.apiKey}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    if (response.status === 404) return "12345";
+    const errorData = await response.json();
+    throw new Error(`Firebase Error: ${errorData.error?.message || response.statusText}`);
+  }
+  const data = await response.json();
+  return data.fields?.adminCode?.stringValue || "12345";
+}
+
 export async function getPrevadzky() {
   const url = `${ADMIN_CONFIG.firestoreBaseUrl}/Global/Prevadzky?key=${FIREBASE_CONFIG.apiKey}`;
   const response = await fetch(url);
@@ -143,18 +155,6 @@ export async function getPrevadzky() {
   });
   
   return sortedKeys.map(key => fields[key].stringValue).filter(Boolean);
-}
-
-export async function getAdminCode() {
-  const url = `${ADMIN_CONFIG.firestoreBaseUrl}/Global/adminCode?key=${FIREBASE_CONFIG.apiKey}`;
-  const response = await fetch(url);
-  if (!response.ok) {
-    if (response.status === 404) return "12345";
-    const errorData = await response.json();
-    throw new Error(`Firebase Error: ${errorData.error?.message || response.statusText}`);
-  }
-  const data = await response.json();
-  return data.fields?.adminCode?.stringValue || "12345";
 }
 
 export async function getDatumy() {
@@ -225,22 +225,17 @@ export async function getProducts() {
   return products;
 }
 
+
 export async function getNextOrderNumber(branch: string, date: string) {
   try {
-    const safeDate = date.replace(/\./g, '_');
-    // Štruktúra: [Branch] (Kolekcia) -> Objednavky (Dokument) -> [Date] (Kolekcia)
-    // Pre získanie zoznamu dokumentov v kolekcii [Date] použijeme URL bez ID dokumentu na konci
-    const url = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(branch.trim())}/Objednavky/${encodeURIComponent(safeDate)}?key=${FIREBASE_CONFIG.apiKey}`;
+    const url = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(branch.trim())}/Objednavky/${encodeURIComponent(date)}?key=${FIREBASE_CONFIG.apiKey}`;
     
     const response = await fetch(url);
     if (!response.ok) {
-      // Ak kolekcia/dokument neexistuje, začíname od 1
-      if (response.status === 404) return 1;
       return 1;
     }
     
     const data = await response.json();
-    // Firestore REST API vráti objekt s polom 'documents' pri listovaní kolekcie
     const documents = data.documents || [];
     return documents.length + 1;
   } catch (err) {
@@ -252,10 +247,8 @@ export async function getNextOrderNumber(branch: string, date: string) {
 export async function submitOrder(branch: string, date: string, orderData: any) {
   const docId = `order_${Date.now()}`;
   const safeBranch = branch.trim();
-  const safeDate = date.replace(/\./g, '_');
   
-  // Cesta: [Branch] (Kolekcia) -> Objednavky (Dokument) -> [Date] (Kolekcia) -> [OrderId] (Dokument)
-  const url = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(safeDate)}/${docId}?key=${FIREBASE_CONFIG.apiKey}`;
+  const url = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}/${docId}?key=${FIREBASE_CONFIG.apiKey}`;
   
   const payload = {
     fields: {
