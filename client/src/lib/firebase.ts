@@ -82,8 +82,8 @@ export async function updateOrder(branch: string, date: string, orderId: string,
 export async function getOrders(branch: string, date: string) {
   try {
     const safeBranch = branch.trim();
-    // Skúsime najpravdepodobnejšiu cestu na základe štruktúry: Kolekcia(Prevádzka) -> Dokument(Dátum) -> Kolekcia(Objednavky)
-    const url = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/${encodeURIComponent(date)}/Objednavky?key=${FIREBASE_CONFIG.apiKey}`;
+    // Štruktúra: Prevádzka -> Objednavky -> Vybraný dátum
+    const url = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}?key=${FIREBASE_CONFIG.apiKey}`;
     
     console.log("Načítavam objednávky z:", url);
     const response = await fetch(url);
@@ -93,8 +93,8 @@ export async function getOrders(branch: string, date: string) {
       return data.documents.map(parseOrderDocument).sort((a: any, b: any) => a.orderNumber - b.orderNumber);
     }
 
-    // Záložná cesta: Kolekcia(Prevádzka) -> Dokument(Objednavky) -> Kolekcia(Dátum)
-    const altUrl = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}?key=${FIREBASE_CONFIG.apiKey}`;
+    // Záložná cesta (pre staršie dáta): Prevádzka -> Dátum -> Objednavky
+    const altUrl = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/${encodeURIComponent(date)}/Objednavky?key=${FIREBASE_CONFIG.apiKey}`;
     console.log("Skúšam záložnú cestu:", altUrl);
     const altResponse = await fetch(altUrl);
     const altData = await altResponse.json();
@@ -240,16 +240,10 @@ export async function getProducts() {
 
 export async function getNextOrderNumber(branch: string, date: string) {
   try {
-    const url = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(branch.trim())}/Objednavky/${encodeURIComponent(date)}?key=${FIREBASE_CONFIG.apiKey}`;
-    
-    const response = await fetch(url);
-    if (!response.ok) {
-      return 1;
-    }
-    
-    const data = await response.json();
-    const documents = data.documents || [];
-    return documents.length + 1;
+    const orders = await getOrders(branch, date);
+    // Nájdeme najvyššie číslo objednávky a pripočítame 1
+    const maxNumber = orders.reduce((max, order) => Math.max(max, order.orderNumber || 0), 0);
+    return maxNumber + 1;
   } catch (err) {
     console.error("Chyba pri získavaní čísla objednávky:", err);
     return 1;
@@ -286,8 +280,8 @@ export async function submitOrder(branch: string, date: string, orderData: any) 
     }
   };
 
-  // Ukladáme do cesty: Kolekcia(Prevádzka) -> Dokument(Dátum) -> Kolekcia(Objednavky) -> Dokument(OrderId)
-  const url = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/${encodeURIComponent(date)}/Objednavky/${docId}?key=${FIREBASE_CONFIG.apiKey}`;
+  // Ukladáme do cesty: Prevádzka -> Objednavky -> Vybraný dátum -> Zadaná objednávka
+  const url = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}/${docId}?key=${FIREBASE_CONFIG.apiKey}`;
   
   try {
     const response = await fetch(url, {
@@ -297,17 +291,7 @@ export async function submitOrder(branch: string, date: string, orderData: any) 
     });
     
     if (!response.ok) {
-      // Skúsime záložnú cestu: Kolekcia(Prevádzka) -> Dokument(Objednavky) -> Kolekcia(Dátum) -> Dokument(OrderId)
-      const altUrl = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}/${docId}?key=${FIREBASE_CONFIG.apiKey}`;
-      const altResponse = await fetch(altUrl, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!altResponse.ok) {
-        throw new Error(`Firebase Error: ${altResponse.statusText}`);
-      }
-      return altResponse.json();
+      throw new Error(`Firebase Error: ${response.statusText}`);
     }
     return response.json();
   } catch (err) {
@@ -315,3 +299,4 @@ export async function submitOrder(branch: string, date: string, orderData: any) 
     throw err;
   }
 }
+
