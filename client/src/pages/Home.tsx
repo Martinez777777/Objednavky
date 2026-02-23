@@ -79,7 +79,9 @@ export default function Home() {
   const [orders, setOrders] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isStatusConfirmOpen, setIsStatusConfirmOpen] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState<any>(null);
+  const [orderToUpdateStatus, setOrderToUpdateStatus] = useState<any>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"Overview" | "Delivered" | "Undelivered">("Overview");
@@ -94,12 +96,18 @@ export default function Home() {
     return matchesSearch;
   });
 
-  const handleToggleDeliveryStatus = async (order: any) => {
+  const handleToggleDeliveryStatus = (order: any) => {
+    setOrderToUpdateStatus(order);
+    setIsStatusConfirmOpen(true);
+  };
+
+  const confirmToggleDeliveryStatus = async () => {
+    if (!orderToUpdateStatus) return;
     setIsPending(true);
     try {
-      const newStatus = order.deliveryStatus === "Vydaná" ? "Nevydaná" : "Vydaná";
-      await updateOrder(activeBranch!, selectedDate!, order.id, {
-        ...order,
+      const newStatus = orderToUpdateStatus.deliveryStatus === "Vydaná" ? "Nevydaná" : "Vydaná";
+      await updateOrder(activeBranch!, selectedDate!, orderToUpdateStatus.id, {
+        ...orderToUpdateStatus,
         deliveryStatus: newStatus
       });
       const fetchedOrders = await getOrders(activeBranch!, selectedDate!);
@@ -109,6 +117,8 @@ export default function Home() {
       toast({ title: "Chyba", description: "Nepodarilo sa zmeniť status doručenia.", variant: "destructive" });
     } finally {
       setIsPending(false);
+      setIsStatusConfirmOpen(false);
+      setOrderToUpdateStatus(null);
     }
   };
 
@@ -837,6 +847,29 @@ export default function Home() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={isStatusConfirmOpen} onOpenChange={setIsStatusConfirmOpen}>
+        <AlertDialogContent className="bg-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Zmeniť status objednávky?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Naozaj chcete označiť objednávku #{orderToUpdateStatus?.orderNumber} ako {orderToUpdateStatus?.deliveryStatus === "Vydaná" ? "Nevydaná" : "Vydaná"}?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isPending}>Zrušiť</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={(e) => {
+                e.preventDefault();
+                confirmToggleDeliveryStatus();
+              }} 
+              disabled={isPending}
+            >
+              {isPending ? "Ukladám..." : "Potvrdiť"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent className="bg-white">
