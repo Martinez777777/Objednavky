@@ -82,48 +82,64 @@ export async function updateOrder(branch: string, date: string, orderId: string,
 export async function getOrders(branch: string, date: string) {
   try {
     const safeBranch = branch.trim();
-    // Use the date string directly as it contains spaces (e.g., "22.01.26 Utorok")
-    const url = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}?key=${FIREBASE_CONFIG.apiKey}`;
+    // The structure seems to be: Branch (Collection) -> Objednavky (Document) -> Date (Collection) -> Order (Document)
+    // Or: Branch (Collection) -> [Date] (Document) -> Objednavky (Collection) -> Order (Document)
+    // Based on the screenshot, it's Global -> Datumy, Prevadzky, adminCode.
+    // For branches, it's KosiceMerkur -> Objednavky.
+    // Let's try the most likely path for the orders overview.
+    const url = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}/Orders?key=${FIREBASE_CONFIG.apiKey}`;
     
+    console.log("Fetching orders from:", url);
     const response = await fetch(url);
     if (!response.ok) {
-      if (response.status === 404) return [];
-      throw new Error(`Firebase Error: ${response.statusText}`);
+      // Try alternative path: Branch -> Objednavky -> [Date]
+      const altUrl = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}?key=${FIREBASE_CONFIG.apiKey}`;
+      const altResponse = await fetch(altUrl);
+      if (!altResponse.ok) {
+        if (altResponse.status === 404) return [];
+        throw new Error(`Firebase Error: ${altResponse.statusText}`);
+      }
+      const altData = await altResponse.json();
+      const documents = altData.documents || [];
+      return documents.map(parseOrderDocument).sort((a: any, b: any) => a.orderNumber - b.orderNumber);
     }
     
     const data = await response.json();
     const documents = data.documents || [];
     
-    return documents.map((doc: any) => {
-      const fields = doc.fields || {};
-      const products = (fields.products?.arrayValue?.values || []).map((p: any) => {
-        const pf = p.mapValue?.fields || {};
-        return {
-          name: pf.name?.stringValue || "",
-          price: pf.price?.stringValue || "",
-          quantity: pf.quantity?.integerValue || "0",
-          note: pf.note?.stringValue || ""
-        };
-      });
-
-      return {
-        id: doc.name.split('/').pop(),
-        orderNumber: parseInt(fields.orderNumber?.integerValue || "0"),
-        customerName: fields.customerName?.stringValue || "",
-        customerPhone: fields.customerPhone?.stringValue || "",
-        paymentStatus: fields.paymentStatus?.stringValue || "Unpaid",
-        reportType: fields.reportType?.stringValue || "",
-        date: fields.date?.stringValue || "",
-        note: fields.note?.stringValue || "",
-        createdAt: fields.createdAt?.stringValue || "",
-        products
-      };
-    }).sort((a: any, b: any) => a.orderNumber - b.orderNumber);
+    return documents.map(parseOrderDocument).sort((a: any, b: any) => a.orderNumber - b.orderNumber);
   } catch (err) {
     console.error("Chyba pri získavaní objednávok:", err);
     throw err;
   }
 }
+
+function parseOrderDocument(doc: any) {
+  const fields = doc.fields || {};
+  const products = (fields.products?.arrayValue?.values || []).map((p: any) => {
+    const pf = p.mapValue?.fields || {};
+    return {
+      name: pf.name?.stringValue || "",
+      price: pf.price?.stringValue || "",
+      quantity: pf.quantity?.integerValue || "0",
+      note: pf.note?.stringValue || ""
+    };
+  });
+
+  return {
+    id: doc.name.split('/').pop(),
+    orderNumber: parseInt(fields.orderNumber?.integerValue || "0"),
+    customerName: fields.customerName?.stringValue || "",
+    customerPhone: fields.customerPhone?.stringValue || "",
+    paymentStatus: fields.paymentStatus?.stringValue || "Unpaid",
+    reportType: fields.reportType?.stringValue || "",
+    date: fields.date?.stringValue || "",
+    note: fields.note?.stringValue || "",
+    createdAt: fields.createdAt?.stringValue || "",
+    products
+  };
+}
+
 
 export async function getAdminCode() {
   const url = `${ADMIN_CONFIG.firestoreBaseUrl}/Global/adminCode?key=${FIREBASE_CONFIG.apiKey}`;
@@ -248,7 +264,8 @@ export async function submitOrder(branch: string, date: string, orderData: any) 
   const docId = `order_${Date.now()}`;
   const safeBranch = branch.trim();
   
-  const url = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}/${docId}?key=${FIREBASE_CONFIG.apiKey}`;
+  // Try to determine the correct path for submitting
+  const url = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}/Orders/${docId}?key=${FIREBASE_CONFIG.apiKey}`;
   
   const payload = {
     fields: {
@@ -276,14 +293,30 @@ export async function submitOrder(branch: string, date: string, orderData: any) 
       }
     }
   };
-  const response = await fetch(url, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(`Firebase Error: ${errorData.error?.message || response.statusText}`);
+
+  try {
+    const response = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      // Fallback to alternative path
+      const altUrl = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}/${docId}?key=${FIREBASE_CONFIG.apiKey}`;
+      const altResponse = await fetch(altUrl, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!altResponse.ok) {
+        const errorData = await altResponse.json();
+        throw new Error(`Firebase Error: ${errorData.error?.message || altResponse.statusText}`);
+      }
+      return altResponse.json();
+    }
+    return response.json();
+  } catch (err) {
+    console.error("Chyba pri odosielaní objednávky:", err);
+    throw err;
   }
-  return response.json();
 }
