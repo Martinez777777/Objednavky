@@ -146,7 +146,15 @@ export async function getPrevadzky() {
 }
 
 export async function getAdminCode() {
-  return "12345";
+  const url = `${ADMIN_CONFIG.firestoreBaseUrl}/Global/adminCode?key=${FIREBASE_CONFIG.apiKey}`;
+  const response = await fetch(url);
+  if (!response.ok) {
+    if (response.status === 404) return "12345";
+    const errorData = await response.json();
+    throw new Error(`Firebase Error: ${errorData.error?.message || response.statusText}`);
+  }
+  const data = await response.json();
+  return data.fields?.adminCode?.stringValue || "12345";
 }
 
 export async function getDatumy() {
