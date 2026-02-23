@@ -53,6 +53,7 @@ export default function Home() {
   const [isBranchDialogOpen, setIsBranchDialogOpen] = useState(false);
   const [isDateDialogOpen, setIsDateDialogOpen] = useState(false);
   const [isNewOrderDialogOpen, setIsNewOrderDialogOpen] = useState(false);
+  const [isOdbytDialogOpen, setIsOdbytDialogOpen] = useState(false);
   
   const [adminInput, setAdminInput] = useState("");
   const [pendingAction, setPendingAction] = useState<string | null>(null);
@@ -120,6 +121,23 @@ export default function Home() {
       setIsStatusConfirmOpen(false);
       setOrderToUpdateStatus(null);
     }
+  };
+
+  const getOdbytData = () => {
+    const orderTotals: Record<string, number> = {};
+    const freeSaleTotals: Record<string, number> = {};
+
+    orders.forEach(order => {
+      const target = order.reportType === "Order" ? orderTotals : freeSaleTotals;
+      order.products.forEach((p: any) => {
+        const qty = parseInt(p.quantity) || 0;
+        if (qty > 0) {
+          target[p.name] = (target[p.name] || 0) + qty;
+        }
+      });
+    });
+
+    return { orderTotals, freeSaleTotals };
   };
 
   useEffect(() => {
@@ -252,6 +270,25 @@ export default function Home() {
         toast({
           title: "Chyba",
           description: "Nepodarilo sa načítať objednávky.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsPending(false);
+      }
+      setPendingAction(null);
+      return;
+    }
+
+    if (pendingAction === "Objednávky na ODBYT") {
+      setIsPending(true);
+      try {
+        const fetchedOrders = await getOrders(activeBranch!, date);
+        setOrders(fetchedOrders);
+        setIsOdbytDialogOpen(true);
+      } catch (error: any) {
+        toast({
+          title: "Chyba",
+          description: "Nepodarilo sa načítať objednávky na odbyt.",
           variant: "destructive",
         });
       } finally {
@@ -956,6 +993,55 @@ export default function Home() {
           </div>
         </DialogContent>
       </Dialog>
+      <Dialog open={isOdbytDialogOpen} onOpenChange={setIsOdbytDialogOpen}>
+        <DialogContent className="sm:max-w-md bg-white">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Package className="w-5 h-5 text-primary" />
+              Objednávky na ODBYT
+            </DialogTitle>
+            <DialogDescription>
+              {selectedDate} - {activeBranch}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-6">
+            <div>
+              <h3 className="text-sm font-bold uppercase text-primary mb-3 pb-1 border-b">Objednávka</h3>
+              <div className="space-y-2">
+                {Object.entries(getOdbytData().orderTotals).length === 0 ? (
+                  <p className="text-xs text-slate-400 italic">Žiadne položky</p>
+                ) : (
+                  Object.entries(getOdbytData().orderTotals).map(([name, qty]) => (
+                    <div key={name} className="flex justify-between text-sm font-medium p-2 bg-slate-50 rounded border border-slate-100">
+                      <span>{name}</span>
+                      <span className="text-primary font-bold">{qty} ks</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+            <div>
+              <h3 className="text-sm font-bold uppercase text-primary mb-3 pb-1 border-b">Voľný predaj</h3>
+              <div className="space-y-2">
+                {Object.entries(getOdbytData().freeSaleTotals).length === 0 ? (
+                  <p className="text-xs text-slate-400 italic">Žiadne položky</p>
+                ) : (
+                  Object.entries(getOdbytData().freeSaleTotals).map(([name, qty]) => (
+                    <div key={name} className="flex justify-between text-sm font-medium p-2 bg-slate-50 rounded border border-slate-100">
+                      <span>{name}</span>
+                      <span className="text-primary font-bold">{qty} ks</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setIsOdbytDialogOpen(false)} className="w-full">Zavrieť</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={isOrdersOverviewOpen} onOpenChange={(open) => {
         setIsOrdersOverviewOpen(open);
         if (!open) {
