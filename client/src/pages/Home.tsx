@@ -1140,9 +1140,9 @@ export default function Home() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 border-t">
                       <div className="space-y-2">
                         <p className="text-[10px] font-bold uppercase text-slate-400">Položky</p>
-                        <ul className="space-y-1">
+                        <ul className="divide-y divide-slate-200">
                           {order.products.map((p: any, i: number) => (
-                            <li key={i} className="text-sm flex justify-between gap-4">
+                            <li key={i} className="text-sm flex justify-between gap-4 py-2">
                               <span className="text-slate-700 font-medium" data-testid={`text-product-${order.id}-${i}`}>
                                 {p.quantity}x {p.name}
                               </span>
@@ -1154,7 +1154,7 @@ export default function Home() {
                       {order.note && (
                         <div className="space-y-2">
                           <p className="text-[10px] font-bold uppercase text-slate-400">Poznámka</p>
-                          <p className="text-sm text-slate-600 bg-slate-50 p-2 rounded border italic" data-testid={`text-note-${order.id}`}>
+                          <p className="text-base font-medium text-slate-600 bg-slate-50 p-3 rounded border italic" data-testid={`text-note-${order.id}`}>
                             {order.note}
                           </p>
                         </div>
