@@ -2,9 +2,9 @@
 
 ## Overview
 
-This is an order management application ("Objednávky" means "Orders" in Slovak) built as a full-stack web application. The system provides a menu-driven interface for managing orders, branches (prevadzky), and product imports. It integrates with Firebase Firestore for data storage and uses a PostgreSQL database for local click tracking analytics.
+This is an order management application ("Objednávky" means "Orders" in Slovak) built as a React frontend application. The system provides a menu-driven interface for managing orders, branches (prevadzky), and product imports. It integrates directly with Firebase Firestore for all data storage via REST API calls from the browser.
 
-The application appears to be designed for a restaurant or retail business to manage orders across multiple branches, with features for creating new orders, viewing order statuses (delivered/pending), and importing product data.
+The application is designed for a restaurant or retail business to manage orders across multiple branches, with features for creating new orders, viewing order statuses (delivered/pending), and importing product data.
 
 ## User Preferences
 
@@ -27,51 +27,66 @@ The frontend follows a component-based architecture with:
 - Custom hooks in `client/src/hooks/`
 - Utility functions in `client/src/lib/`
 
-### Backend Architecture
-- **Runtime**: Node.js with Express 5
-- **Language**: TypeScript with ESM modules
-- **Database ORM**: Drizzle ORM with PostgreSQL
-- **API Pattern**: RESTful endpoints defined in `shared/routes.ts`
-
-The backend serves both the API and static files in production. In development, Vite middleware handles the frontend.
-
 ### Data Storage
-- **Primary Database**: PostgreSQL via Drizzle ORM
-  - Schema defined in `shared/schema.ts`
-  - Migrations stored in `migrations/` directory
-  - Database push via `npm run db:push`
-- **External Storage**: Firebase Firestore (REST API)
-  - Used for products, branches, and admin configuration
-  - Direct REST API calls without Firebase SDK
+- **Firebase Firestore** (REST API, direct from browser)
+  - All data: orders, products, branches, dates, admin codes
+  - Project ID: objednavky-368a0
+  - No server-side database (no PostgreSQL dependency)
+  - Configuration in `shared/config.ts`
+  - Firebase helper functions in `client/src/lib/firebase.ts`
+
+### Database Structure (Firestore)
+- `Prevádzka` -> `Objednavky` -> `Vybraný dátum` -> `Zadaná objednávka`
+- `Global/Produkty` - product list
+- `Global/Prevadzky` - branch list
+- `Global/Datumy` - available dates
+- `Global/adminCode` - admin access code
+
+### Backend (Vercel Serverless)
+- `api/index.ts` - Vercel serverless function with attendance system API routes
+- Express server in `server/` used only for local development (serves Vite + forwards API)
+- The ordering system frontend communicates directly with Firebase (no API routes needed)
 
 ### Shared Code
 The `shared/` directory contains code used by both frontend and backend:
-- `schema.ts`: Database schema definitions with Zod validation
-- `routes.ts`: API route definitions with type-safe input/output schemas
-- `config.ts`: Firebase configuration and menu item definitions
+- `schema.ts`: Database schema definitions (legacy, not actively used)
+- `config.ts`: Firebase configuration, menu items, and admin config
 
-### Build System
-- Development: `npm run dev` runs tsx with Vite middleware
-- Production: `npm run build` uses esbuild for server and Vite for client
-- Output: Server bundle in `dist/index.cjs`, client files in `dist/public/`
+### Build & Deployment
+
+#### Local Development
+- `npm run dev` runs tsx with Express + Vite middleware on port 5000
+
+#### Vercel Deployment
+- `vercel.json` configures the deployment:
+  - Build command: `npm run vercel-build` (runs `vite build`)
+  - Output directory: `dist/public`
+  - API rewrites: `/api/*` -> `api/index.ts` (Vercel serverless function)
+  - SPA fallback: all other routes -> `index.html`
+- The frontend is built as static files by Vite
+- API routes are handled by `api/index.ts` as a Vercel serverless function
+
+## Key Features
+- Order creation with product selection, quantities, and notes
+- Delivery status tracking ("Vydaná" / "Nevydaná")
+- Order filtering by delivery status with search
+- Product summary reports ("Objednávky na ODBYT") split by report type
+- Admin code verification from Firestore
+- Branch and date selection
+- Product import functionality
 
 ## External Dependencies
 
 ### Firebase Firestore
-- **Purpose**: Stores products, branches (prevadzky), and admin codes
+- **Purpose**: All application data storage
 - **Project ID**: objednavky-368a0
-- **Integration**: REST API calls (no Firebase SDK)
+- **Integration**: REST API calls directly from frontend
 - **Base URL**: `https://firestore.googleapis.com/v1/projects/objednavky-368a0/databases/(default)/documents`
-
-### PostgreSQL Database
-- **Purpose**: Local analytics and click tracking
-- **Connection**: Via `DATABASE_URL` environment variable
-- **ORM**: Drizzle ORM with node-postgres driver
 
 ### Key NPM Dependencies
 - `@tanstack/react-query`: Server state management
-- `drizzle-orm` / `drizzle-zod`: Database ORM with schema validation
 - `framer-motion`: Animation library
 - `lucide-react`: Icon library
 - `wouter`: Client-side routing
+- `@vercel/node`: Vercel serverless function types
 - Full shadcn/ui component suite (Radix UI based)
