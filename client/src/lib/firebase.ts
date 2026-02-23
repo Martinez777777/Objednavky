@@ -82,34 +82,31 @@ export async function updateOrder(branch: string, date: string, orderId: string,
 export async function getOrders(branch: string, date: string) {
   try {
     const safeBranch = branch.trim();
-    // Vyskúšame všetky možné cesty, kde by objednávky mohli byť uložené
-    const possiblePaths = [
-      `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}/Orders`,
-      `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}/objednavky`,
-      `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}`,
-      `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/${encodeURIComponent(date)}/Objednavky`
-    ];
+    // Skúsime najpravdepodobnejšiu cestu na základe štruktúry: Kolekcia(Prevádzka) -> Dokument(Dátum) -> Kolekcia(Objednavky)
+    const url = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/${encodeURIComponent(date)}/Objednavky?key=${FIREBASE_CONFIG.apiKey}`;
+    
+    console.log("Načítavam objednávky z:", url);
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (response.ok && data.documents) {
+      return data.documents.map(parseOrderDocument).sort((a: any, b: any) => a.orderNumber - b.orderNumber);
+    }
 
-    for (const url of possiblePaths) {
-      console.log("Skúšam načítať objednávky z:", url);
-      try {
-        const response = await fetch(`${url}?key=${FIREBASE_CONFIG.apiKey}`);
-        if (response.ok) {
-          const data = await response.json();
-          const documents = data.documents || [];
-          if (documents.length > 0 || url.includes('/Orders') || url.includes('/objednavky')) {
-            return documents.map(parseOrderDocument).sort((a: any, b: any) => a.orderNumber - b.orderNumber);
-          }
-        }
-      } catch (e) {
-        console.error(`Chyba pri skúšaní cesty ${url}:`, e);
-      }
+    // Záložná cesta: Kolekcia(Prevádzka) -> Dokument(Objednavky) -> Kolekcia(Dátum)
+    const altUrl = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}?key=${FIREBASE_CONFIG.apiKey}`;
+    console.log("Skúšam záložnú cestu:", altUrl);
+    const altResponse = await fetch(altUrl);
+    const altData = await altResponse.json();
+    
+    if (altResponse.ok && altData.documents) {
+      return altData.documents.map(parseOrderDocument).sort((a: any, b: any) => a.orderNumber - b.orderNumber);
     }
     
     return [];
   } catch (err) {
-    console.error("Kritická chyba pri získavaní objednávok:", err);
-    throw err;
+    console.error("Chyba pri získavaní objednávok:", err);
+    return [];
   }
 }
 
