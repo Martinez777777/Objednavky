@@ -82,34 +82,33 @@ export async function updateOrder(branch: string, date: string, orderId: string,
 export async function getOrders(branch: string, date: string) {
   try {
     const safeBranch = branch.trim();
-    // The structure seems to be: Branch (Collection) -> Objednavky (Document) -> Date (Collection) -> Order (Document)
-    // Or: Branch (Collection) -> [Date] (Document) -> Objednavky (Collection) -> Order (Document)
-    // Based on the screenshot, it's Global -> Datumy, Prevadzky, adminCode.
-    // For branches, it's KosiceMerkur -> Objednavky.
-    // Let's try the most likely path for the orders overview.
-    const url = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}/Orders?key=${FIREBASE_CONFIG.apiKey}`;
-    
-    console.log("Fetching orders from:", url);
-    const response = await fetch(url);
-    if (!response.ok) {
-      // Try alternative path: Branch -> Objednavky -> [Date]
-      const altUrl = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}?key=${FIREBASE_CONFIG.apiKey}`;
-      const altResponse = await fetch(altUrl);
-      if (!altResponse.ok) {
-        if (altResponse.status === 404) return [];
-        throw new Error(`Firebase Error: ${altResponse.statusText}`);
+    // Vyskúšame všetky možné cesty, kde by objednávky mohli byť uložené
+    const possiblePaths = [
+      `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}/Orders`,
+      `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}/objednavky`,
+      `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}`,
+      `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/${encodeURIComponent(date)}/Objednavky`
+    ];
+
+    for (const url of possiblePaths) {
+      console.log("Skúšam načítať objednávky z:", url);
+      try {
+        const response = await fetch(`${url}?key=${FIREBASE_CONFIG.apiKey}`);
+        if (response.ok) {
+          const data = await response.json();
+          const documents = data.documents || [];
+          if (documents.length > 0 || url.includes('/Orders') || url.includes('/objednavky')) {
+            return documents.map(parseOrderDocument).sort((a: any, b: any) => a.orderNumber - b.orderNumber);
+          }
+        }
+      } catch (e) {
+        console.error(`Chyba pri skúšaní cesty ${url}:`, e);
       }
-      const altData = await altResponse.json();
-      const documents = altData.documents || [];
-      return documents.map(parseOrderDocument).sort((a: any, b: any) => a.orderNumber - b.orderNumber);
     }
     
-    const data = await response.json();
-    const documents = data.documents || [];
-    
-    return documents.map(parseOrderDocument).sort((a: any, b: any) => a.orderNumber - b.orderNumber);
+    return [];
   } catch (err) {
-    console.error("Chyba pri získavaní objednávok:", err);
+    console.error("Kritická chyba pri získavaní objednávok:", err);
     throw err;
   }
 }
@@ -263,10 +262,6 @@ export async function getNextOrderNumber(branch: string, date: string) {
 export async function submitOrder(branch: string, date: string, orderData: any) {
   const docId = `order_${Date.now()}`;
   const safeBranch = branch.trim();
-  
-  // Try to determine the correct path for submitting
-  const url = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}/Orders/${docId}?key=${FIREBASE_CONFIG.apiKey}`;
-  
   const payload = {
     fields: {
       orderNumber: { integerValue: String(orderData.orderNumber) },
@@ -294,25 +289,18 @@ export async function submitOrder(branch: string, date: string, orderData: any) 
     }
   };
 
+  // Ukladáme do cesty: Branch -> Objednavky -> [Date] -> Orders -> [DocId]
+  const primaryUrl = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}/Orders/${docId}?key=${FIREBASE_CONFIG.apiKey}`;
+  
   try {
-    const response = await fetch(url, {
+    const response = await fetch(primaryUrl, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
+    
     if (!response.ok) {
-      // Fallback to alternative path
-      const altUrl = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}/${docId}?key=${FIREBASE_CONFIG.apiKey}`;
-      const altResponse = await fetch(altUrl, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      if (!altResponse.ok) {
-        const errorData = await altResponse.json();
-        throw new Error(`Firebase Error: ${errorData.error?.message || altResponse.statusText}`);
-      }
-      return altResponse.json();
+      throw new Error(`Firebase Error: ${response.statusText}`);
     }
     return response.json();
   } catch (err) {
