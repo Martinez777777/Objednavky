@@ -286,18 +286,28 @@ export async function submitOrder(branch: string, date: string, orderData: any) 
     }
   };
 
-  // Ukladáme do cesty: Branch -> Objednavky -> [Date] -> Orders -> [DocId]
-  const primaryUrl = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}/Orders/${docId}?key=${FIREBASE_CONFIG.apiKey}`;
+  // Ukladáme do cesty: Kolekcia(Prevádzka) -> Dokument(Dátum) -> Kolekcia(Objednavky) -> Dokument(OrderId)
+  const url = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/${encodeURIComponent(date)}/Objednavky/${docId}?key=${FIREBASE_CONFIG.apiKey}`;
   
   try {
-    const response = await fetch(primaryUrl, {
+    const response = await fetch(url, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
     
     if (!response.ok) {
-      throw new Error(`Firebase Error: ${response.statusText}`);
+      // Skúsime záložnú cestu: Kolekcia(Prevádzka) -> Dokument(Objednavky) -> Kolekcia(Dátum) -> Dokument(OrderId)
+      const altUrl = `${ADMIN_CONFIG.firestoreBaseUrl}/${encodeURIComponent(safeBranch)}/Objednavky/${encodeURIComponent(date)}/${docId}?key=${FIREBASE_CONFIG.apiKey}`;
+      const altResponse = await fetch(altUrl, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!altResponse.ok) {
+        throw new Error(`Firebase Error: ${altResponse.statusText}`);
+      }
+      return altResponse.json();
     }
     return response.json();
   } catch (err) {
