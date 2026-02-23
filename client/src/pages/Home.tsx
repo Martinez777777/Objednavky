@@ -126,18 +126,36 @@ export default function Home() {
   const getOdbytData = () => {
     const orderTotals: Record<string, number> = {};
     const freeSaleTotals: Record<string, number> = {};
+    const orderProductNotes: Record<string, string[]> = {};
+    const freeSaleProductNotes: Record<string, string[]> = {};
+    const orderNotes: string[] = [];
+    const freeSaleNotes: string[] = [];
 
     orders.forEach(order => {
-      const target = order.reportType === "Order" ? orderTotals : freeSaleTotals;
+      const isOrder = order.reportType === "Order";
+      const target = isOrder ? orderTotals : freeSaleTotals;
+      const notesTarget = isOrder ? orderProductNotes : freeSaleProductNotes;
       order.products.forEach((p: any) => {
         const qty = parseInt(p.quantity) || 0;
         if (qty > 0) {
           target[p.name] = (target[p.name] || 0) + qty;
+          if (p.note && p.note.trim()) {
+            if (!notesTarget[p.name]) notesTarget[p.name] = [];
+            notesTarget[p.name].push(p.note.trim());
+          }
         }
       });
+      if (order.note && order.note.trim()) {
+        const label = `#${order.orderNumber} ${order.customerName}: ${order.note.trim()}`;
+        if (isOrder) {
+          orderNotes.push(label);
+        } else {
+          freeSaleNotes.push(label);
+        }
+      }
     });
 
-    return { orderTotals, freeSaleTotals };
+    return { orderTotals, freeSaleTotals, orderProductNotes, freeSaleProductNotes, orderNotes, freeSaleNotes };
   };
 
   useEffect(() => {
@@ -1004,38 +1022,81 @@ export default function Home() {
               {selectedDate} - {activeBranch}
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4 space-y-6">
-            <div>
-              <h3 className="text-sm font-bold uppercase text-primary mb-3 pb-1 border-b">Objednávka</h3>
-              <div className="space-y-2">
-                {Object.entries(getOdbytData().orderTotals).length === 0 ? (
-                  <p className="text-xs text-slate-400 italic">Žiadne položky</p>
-                ) : (
-                  Object.entries(getOdbytData().orderTotals).map(([name, qty]) => (
-                    <div key={name} className="flex justify-between text-sm font-medium p-2 bg-slate-50 rounded border border-slate-100">
-                      <span>{name}</span>
-                      <span className="text-primary font-bold">{qty} ks</span>
+          {(() => {
+            const data = getOdbytData();
+            return (
+              <div className="py-4 space-y-6">
+                <div>
+                  <h3 className="text-sm font-bold uppercase text-primary mb-3 pb-1 border-b">Objednávka</h3>
+                  <div className="space-y-2">
+                    {Object.entries(data.orderTotals).length === 0 ? (
+                      <p className="text-xs text-slate-400 italic">Žiadne položky</p>
+                    ) : (
+                      Object.entries(data.orderTotals).map(([name, qty]) => (
+                        <div key={name}>
+                          <div className="flex justify-between text-sm font-medium p-2 bg-slate-50 rounded border border-slate-100">
+                            <span>{name}</span>
+                            <span className="text-primary font-bold">{qty} ks</span>
+                          </div>
+                          {data.orderProductNotes[name] && data.orderProductNotes[name].length > 0 && (
+                            <div className="ml-3 mt-1 space-y-1">
+                              {data.orderProductNotes[name].map((note, i) => (
+                                <p key={i} className="text-sm text-slate-500 font-medium italic">— {note}</p>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  {data.orderNotes.length > 0 && (
+                    <div className="mt-4 pt-3 border-t border-slate-200">
+                      <p className="text-[10px] font-bold uppercase text-slate-400 mb-2">Poznámky k objednávkam</p>
+                      <div className="space-y-1">
+                        {data.orderNotes.map((note, i) => (
+                          <p key={i} className="text-sm font-medium text-slate-600 bg-slate-50 p-2 rounded border italic">{note}</p>
+                        ))}
+                      </div>
                     </div>
-                  ))
-                )}
-              </div>
-            </div>
-            <div>
-              <h3 className="text-sm font-bold uppercase text-primary mb-3 pb-1 border-b">Voľný predaj</h3>
-              <div className="space-y-2">
-                {Object.entries(getOdbytData().freeSaleTotals).length === 0 ? (
-                  <p className="text-xs text-slate-400 italic">Žiadne položky</p>
-                ) : (
-                  Object.entries(getOdbytData().freeSaleTotals).map(([name, qty]) => (
-                    <div key={name} className="flex justify-between text-sm font-medium p-2 bg-slate-50 rounded border border-slate-100">
-                      <span>{name}</span>
-                      <span className="text-primary font-bold">{qty} ks</span>
+                  )}
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold uppercase text-primary mb-3 pb-1 border-b">Voľný predaj</h3>
+                  <div className="space-y-2">
+                    {Object.entries(data.freeSaleTotals).length === 0 ? (
+                      <p className="text-xs text-slate-400 italic">Žiadne položky</p>
+                    ) : (
+                      Object.entries(data.freeSaleTotals).map(([name, qty]) => (
+                        <div key={name}>
+                          <div className="flex justify-between text-sm font-medium p-2 bg-slate-50 rounded border border-slate-100">
+                            <span>{name}</span>
+                            <span className="text-primary font-bold">{qty} ks</span>
+                          </div>
+                          {data.freeSaleProductNotes[name] && data.freeSaleProductNotes[name].length > 0 && (
+                            <div className="ml-3 mt-1 space-y-1">
+                              {data.freeSaleProductNotes[name].map((note, i) => (
+                                <p key={i} className="text-sm text-slate-500 font-medium italic">— {note}</p>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                  {data.freeSaleNotes.length > 0 && (
+                    <div className="mt-4 pt-3 border-t border-slate-200">
+                      <p className="text-[10px] font-bold uppercase text-slate-400 mb-2">Poznámky k objednávkam</p>
+                      <div className="space-y-1">
+                        {data.freeSaleNotes.map((note, i) => (
+                          <p key={i} className="text-sm font-medium text-slate-600 bg-slate-50 p-2 rounded border italic">{note}</p>
+                        ))}
+                      </div>
                     </div>
-                  ))
-                )}
+                  )}
+                </div>
               </div>
-            </div>
-          </div>
+            );
+          })()}
           <DialogFooter>
             <Button onClick={() => setIsOdbytDialogOpen(false)} className="w-full">Zavrieť</Button>
           </DialogFooter>
