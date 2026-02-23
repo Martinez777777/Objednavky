@@ -82,6 +82,35 @@ export default function Home() {
   const [orderToDelete, setOrderToDelete] = useState<any>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<"Overview" | "Delivered" | "Undelivered">("Overview");
+
+  const filteredOrders = orders.filter(order => {
+    const matchesSearch = 
+      (order.customerName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (order.orderNumber || "").toString().includes(searchQuery);
+    
+    if (viewMode === "Delivered") return matchesSearch && order.deliveryStatus === "Vydaná";
+    if (viewMode === "Undelivered") return matchesSearch && order.deliveryStatus === "Nevydaná";
+    return matchesSearch;
+  });
+
+  const handleToggleDeliveryStatus = async (order: any) => {
+    setIsPending(true);
+    try {
+      const newStatus = order.deliveryStatus === "Vydaná" ? "Nevydaná" : "Vydaná";
+      await updateOrder(activeBranch!, selectedDate!, order.id, {
+        ...order,
+        deliveryStatus: newStatus
+      });
+      const fetchedOrders = await getOrders(activeBranch!, selectedDate!);
+      setOrders(fetchedOrders);
+      toast({ title: "Status zmenený", description: `Objednávka bola označená ako ${newStatus}.` });
+    } catch (error: any) {
+      toast({ title: "Chyba", description: "Nepodarilo sa zmeniť status doručenia.", variant: "destructive" });
+    } finally {
+      setIsPending(false);
+    }
+  };
 
   useEffect(() => {
     if (successMessage) {
@@ -200,11 +229,14 @@ export default function Home() {
       return;
     }
 
-    if (pendingAction === "Prehľad objednávok") {
+    if (pendingAction === "Prehľad objednávok" || pendingAction === "Vydané objednávky" || pendingAction === "Nevydané objednávky") {
       setIsPending(true);
       try {
         const fetchedOrders = await getOrders(activeBranch!, date);
         setOrders(fetchedOrders);
+        if (pendingAction === "Prehľad objednávok") setViewMode("Overview");
+        else if (pendingAction === "Vydané objednávky") setViewMode("Delivered");
+        else if (pendingAction === "Nevydané objednávky") setViewMode("Undelivered");
         setIsOrdersOverviewOpen(true);
       } catch (error: any) {
         toast({
@@ -901,10 +933,10 @@ export default function Home() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-2xl font-bold">
               <Package className="w-6 h-6 text-primary" />
-              Prehľad objednávok - {selectedDate}
+              {viewMode === "Overview" ? "Prehľad objednávok" : viewMode === "Delivered" ? "Vydané objednávky" : "Nevydané objednávky"} - {selectedDate}
             </DialogTitle>
             <DialogDescription>
-              Zoznam všetkých objednávok pre prevádzku {activeBranch}
+              {activeBranch}
             </DialogDescription>
           </DialogHeader>
           
@@ -919,10 +951,7 @@ export default function Home() {
               />
             </div>
 
-            {orders.filter(order => 
-              order.customerName.toLowerCase().includes(searchQuery.toLowerCase()) || 
-              order.orderNumber.toString().includes(searchQuery)
-            ).length === 0 ? (
+            {filteredOrders.length === 0 ? (
               <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed">
                 <Package className="w-12 h-12 text-slate-300 mx-auto mb-3" />
                 <p className="text-slate-500 font-medium">
@@ -931,12 +960,7 @@ export default function Home() {
               </div>
             ) : (
               <div className="space-y-4">
-                {orders
-                  .filter(order => 
-                    order.customerName.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                    order.orderNumber.toString().includes(searchQuery)
-                  )
-                  .map((order) => (
+                {filteredOrders.map((order) => (
                   <div key={order.id} className="p-4 rounded-xl border bg-card hover:shadow-md transition-shadow space-y-3">
                     <div className="flex items-start justify-between">
                       <div className="space-y-1">
@@ -950,6 +974,15 @@ export default function Home() {
                       </div>
                       <div className="flex flex-col items-end gap-2">
                         <div className="flex gap-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className={order.deliveryStatus === "Vydaná" ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "bg-amber-50 text-amber-700 border-amber-100"}
+                            onClick={() => handleToggleDeliveryStatus(order)}
+                            disabled={isPending}
+                          >
+                            {order.deliveryStatus}
+                          </Button>
                           <Button 
                             size="icon" 
                             variant="ghost" 
