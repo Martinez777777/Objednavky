@@ -3,6 +3,18 @@ import { registerRoutes } from "./routes";
 import { setupVite } from "./vite";
 import { createServer } from "http";
 
+// Prevent Vite's internal error handler from killing the process.
+// Vite calls process.exit(1) on any logger error which would crash
+// the entire server. We intercept it and log instead.
+const _originalExit = process.exit.bind(process);
+(process as any).exit = (code?: number) => {
+  if (code === 1) {
+    console.error(`[server] Suppressed process.exit(1) — keeping server alive.`);
+    return undefined as never;
+  }
+  return _originalExit(code);
+};
+
 function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
     hour: "numeric",
