@@ -94,6 +94,7 @@ export default function Home() {
   const [isEditing, setIsEditing] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"Overview" | "Delivered" | "Undelivered">("Overview");
+  const [overviewFilter, setOverviewFilter] = useState<"All" | "Delivered" | "Undelivered">("All");
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch = 
@@ -102,6 +103,10 @@ export default function Home() {
     
     if (viewMode === "Delivered") return matchesSearch && order.deliveryStatus === "Vydaná";
     if (viewMode === "Undelivered") return matchesSearch && order.deliveryStatus === "Nevydaná";
+    if (viewMode === "Overview") {
+      if (overviewFilter === "Delivered") return matchesSearch && order.deliveryStatus === "Vydaná";
+      if (overviewFilter === "Undelivered") return matchesSearch && order.deliveryStatus === "Nevydaná";
+    }
     return matchesSearch;
   });
 
@@ -288,7 +293,7 @@ export default function Home() {
       try {
         const fetchedOrders = await getOrders(activeBranch!, date);
         setOrders(fetchedOrders);
-        if (pendingAction === "Prehľad objednávok") setViewMode("Overview");
+        if (pendingAction === "Prehľad objednávok") { setViewMode("Overview"); setOverviewFilter("All"); }
         else if (pendingAction === "Vydané objednávky") setViewMode("Delivered");
         else if (pendingAction === "Nevydané objednávky") setViewMode("Undelivered");
         setIsOrdersOverviewOpen(true);
@@ -1138,6 +1143,38 @@ export default function Home() {
                 className="pl-10 h-11 bg-slate-50 border-slate-200 focus:bg-white transition-colors"
               />
             </div>
+
+            {viewMode === "Overview" && (
+              <div className="flex gap-2">
+                <Button
+                  variant={overviewFilter === "All" ? "default" : "outline"}
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => setOverviewFilter("All")}
+                  data-testid="button-filter-all"
+                >
+                  Všetky
+                </Button>
+                <Button
+                  variant={overviewFilter === "Delivered" ? "default" : "outline"}
+                  size="sm"
+                  className={`flex-1 ${overviewFilter === "Delivered" ? "" : "text-emerald-700 border-emerald-200 bg-emerald-50 hover:bg-emerald-100"}`}
+                  onClick={() => setOverviewFilter("Delivered")}
+                  data-testid="button-filter-delivered"
+                >
+                  Vydané
+                </Button>
+                <Button
+                  variant={overviewFilter === "Undelivered" ? "default" : "outline"}
+                  size="sm"
+                  className={`flex-1 ${overviewFilter === "Undelivered" ? "" : "text-amber-700 border-amber-200 bg-amber-50 hover:bg-amber-100"}`}
+                  onClick={() => setOverviewFilter("Undelivered")}
+                  data-testid="button-filter-undelivered"
+                >
+                  Nevydané
+                </Button>
+              </div>
+            )}
 
             {filteredOrders.length === 0 ? (
               <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed">
