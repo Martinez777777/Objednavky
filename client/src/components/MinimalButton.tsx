@@ -2,9 +2,13 @@ import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import * as LucideIcons from "lucide-react";
 
-interface MinimalButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface MinimalButtonProps {
   label: string;
   index: number;
+  className?: string;
+  onClick?: () => void;
+  disabled?: boolean;
+  "data-testid"?: string;
 }
 
 const iconMap: Record<string, LucideIcons.LucideIcon> = {
@@ -18,7 +22,7 @@ const iconMap: Record<string, LucideIcons.LucideIcon> = {
   "Odhlásiť zariadenie": LucideIcons.LogOut,
 };
 
-export function MinimalButton({ label, index, className, ...props }: MinimalButtonProps) {
+export function MinimalButton({ label, index, className, onClick, disabled, "data-testid": testId }: MinimalButtonProps) {
   const Icon = iconMap[label] || LucideIcons.PlusCircle;
 
   return (
@@ -31,6 +35,9 @@ export function MinimalButton({ label, index, className, ...props }: MinimalButt
         ease: [0.23, 1, 0.32, 1] 
       }}
       whileTap={{ scale: 0.98 }}
+      onClick={onClick}
+      disabled={disabled}
+      data-testid={testId}
       className={cn(
         "group relative flex items-center w-full p-4 rounded-xl",
         "bg-white dark:bg-slate-900",
@@ -38,7 +45,6 @@ export function MinimalButton({ label, index, className, ...props }: MinimalButt
         "transition-all duration-300 text-left",
         className
       )}
-      {...props}
     >
       <div className="flex items-center gap-4 w-full">
         <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-slate-50 dark:bg-slate-800 transition-colors duration-300">
