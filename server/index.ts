@@ -1,19 +1,32 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
-import { setupVite } from "./vite";
 import { createServer } from "http";
 
-// Prevent Vite's internal error handler from killing the process.
-// Vite calls process.exit(1) on any logger error which would crash
-// the entire server. We intercept it and log instead.
-const _originalExit = process.exit.bind(process);
-(process as any).exit = (code?: number) => {
-  if (code === 1) {
-    console.error(`[server] Suppressed process.exit(1) — keeping server alive.`);
-    return undefined as never;
-  }
-  return _originalExit(code);
-};
+process.on("uncaughtException", (err) => {
+  console.error("UNCAUGHT EXCEPTION:", err);
+  process.exit(1);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("UNHANDLED REJECTION:", reason);
+  process.exit(1);
+});
+
+process.on("SIGTERM", () => {
+  console.error("SIGTERM received — process terminated by OS");
+  process.exit(0);
+});
+
+process.on("SIGINT", () => {
+  console.error("SIGINT received");
+  process.exit(0);
+});
+
+setInterval(() => {
+  const mem = process.memoryUsage();
+  console.log(`[health] uptime=${Math.round(process.uptime())}s rss=${Math.round(mem.rss/1024/1024)}MB heap=${Math.round(mem.heapUsed/1024/1024)}MB`);
+}, 15000);
+
 
 function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -77,9 +90,10 @@ app.use((req, res, next) => {
   // setting up all the other routes so the catch-all route
   // doesn't interfere with the other routes
   if (app.get("env") === "development") {
+    const { setupVite } = await import("./vite.js");
     await setupVite(server, app);
   } else {
-    serveStatic(app);
+    await serveStatic(app);
   }
 
   // ALWAYS serve the app on port 5000
@@ -90,7 +104,7 @@ app.use((req, res, next) => {
   });
 })();
 
-function serveStatic(app: express.Express) {
-  const { serveStatic } = require("./static");
+async function serveStatic(app: express.Express) {
+  const { serveStatic } = await import("./static.js");
   serveStatic(app);
 }
