@@ -94,6 +94,7 @@ export default function Home() {
   const [isEditing, setIsEditing] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [overviewFilter, setOverviewFilter] = useState<"All" | "Delivered" | "Undelivered">("All");
+  const [isOrderPreviewOpen, setIsOrderPreviewOpen] = useState(false);
   const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
   const [infoText, setInfoText] = useState("");
   const [infoEditStep, setInfoEditStep] = useState<"view" | "admin" | "edit">("view");
@@ -357,7 +358,7 @@ export default function Home() {
     setOrderProducts(orderProducts.filter((_, i) => i !== index));
   };
 
-  const handleSubmitOrder = async () => {
+  const handleSubmitOrder = () => {
     if (!activeBranch) {
       setValidationError("Chyba. Nemáš zvolenú prevádzku.");
       return;
@@ -370,7 +371,11 @@ export default function Home() {
       toast({ title: "Chyba", description: "Pridajte aspoň jeden produkt.", variant: "destructive" });
       return;
     }
+    setValidationError(null);
+    setIsOrderPreviewOpen(true);
+  };
 
+  const confirmSaveOrder = async () => {
     setIsPending(true);
     try {
       if (isEditing && editingOrderId) {
@@ -384,7 +389,6 @@ export default function Home() {
           note: orderNote
         });
         setSuccessMessage("Objednávka bola upravená");
-        // Refresh orders if overview is open
         if (isOrdersOverviewOpen) {
           const fetchedOrders = await getOrders(activeBranch!, selectedDate!);
           setOrders(fetchedOrders);
@@ -401,6 +405,7 @@ export default function Home() {
         });
         setSuccessMessage("Objednávka je uložená");
       }
+      setIsOrderPreviewOpen(false);
       setIsNewOrderDialogOpen(false);
       setIsEditing(false);
       setEditingOrderId(null);
@@ -975,6 +980,104 @@ export default function Home() {
             </Button>
             <Button onClick={handleSubmitOrder} disabled={isPending} className="flex-1">
               {isPending ? "Ukladám..." : isEditing ? "Uložiť zmeny" : "Uložiť objednávku"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Order Preview Dialog */}
+      <Dialog open={isOrderPreviewOpen} onOpenChange={(open) => { if (!open) setIsOrderPreviewOpen(false); }}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto bg-white">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+              <Check className="w-5 h-5 text-primary" />
+              {isEditing ? "Skontrolovať zmeny" : "Skontrolovať objednávku"}
+            </DialogTitle>
+            <DialogDescription>
+              Skontrolujte zadané údaje pred uložením.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2 space-y-4">
+            {/* Header info */}
+            <div className="rounded-xl border bg-slate-50 p-4 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase text-slate-400 tracking-wider">Číslo objednávky</span>
+                <span className="text-lg font-bold text-primary">#{orderNumber}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase text-slate-400 tracking-wider">Meno zákazníka</span>
+                <span className="font-semibold text-slate-800">{customerName}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase text-slate-400 tracking-wider">Telefón</span>
+                <span className="text-slate-700">{customerPhone}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase text-slate-400 tracking-wider">Platba</span>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${paymentStatus === "Paid" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
+                  {paymentStatus === "Paid" ? "Zaplatené" : "Nezaplatené"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase text-slate-400 tracking-wider">Hlásenie</span>
+                <span className="text-slate-700">{reportType}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase text-slate-400 tracking-wider">Dátum</span>
+                <span className="text-slate-700">{selectedDate}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase text-slate-400 tracking-wider">Prevádzka</span>
+                <span className="text-slate-700">{activeBranch}</span>
+              </div>
+            </div>
+
+            {/* Products */}
+            <div className="space-y-2">
+              <p className="text-xs font-bold uppercase text-slate-400 tracking-wider">Položky</p>
+              <ul className="divide-y divide-slate-100 rounded-xl border overflow-hidden">
+                {orderProducts.filter(p => Number(p.quantity) > 0).map((p, i) => (
+                  <li key={i} className="flex items-center justify-between px-4 py-2.5 bg-white">
+                    <div>
+                      <span className="font-medium text-slate-800">{p.name}</span>
+                      {p.note && <span className="ml-2 text-sm text-slate-500 italic">({p.note})</span>}
+                    </div>
+                    <span className="font-bold text-primary text-sm">×{p.quantity}</span>
+                  </li>
+                ))}
+                {orderProducts.filter(p => Number(p.quantity) > 0).length === 0 && (
+                  <li className="px-4 py-3 text-slate-400 italic text-sm">Žiadne položky s nenulovou hodnotou.</li>
+                )}
+              </ul>
+            </div>
+
+            {/* Order note */}
+            {orderNote && (
+              <div className="space-y-1">
+                <p className="text-xs font-bold uppercase text-slate-400 tracking-wider">Poznámka k objednávke</p>
+                <p className="rounded-xl border bg-slate-50 px-4 py-3 text-slate-700 text-sm whitespace-pre-wrap">{orderNote}</p>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setIsOrderPreviewOpen(false)}
+              className="flex-1"
+              data-testid="button-preview-back"
+            >
+              <Edit2 className="w-4 h-4 mr-2" />
+              Upraviť
+            </Button>
+            <Button
+              onClick={confirmSaveOrder}
+              disabled={isPending}
+              className="flex-1"
+              data-testid="button-preview-confirm"
+            >
+              {isPending ? "Ukladám..." : <><Save className="w-4 h-4 mr-2" />{isEditing ? "Uložiť zmeny" : "Uložiť objednávku"}</>}
             </Button>
           </DialogFooter>
         </DialogContent>
