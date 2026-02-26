@@ -101,6 +101,7 @@ export default function Home() {
   const [infoAdminInput, setInfoAdminInput] = useState("");
   const [infoEditText, setInfoEditText] = useState("");
   const [isInfoSaving, setIsInfoSaving] = useState(false);
+  const [selectedOrderDetail, setSelectedOrderDetail] = useState<any>(null);
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch = 
@@ -1351,7 +1352,7 @@ export default function Home() {
             ) : (
               <div className="space-y-4">
                 {filteredOrders.map((order) => (
-                  <div key={order.id} className="p-4 rounded-xl border bg-card hover:shadow-md transition-shadow space-y-3">
+                  <div key={order.id} className="p-4 rounded-xl border bg-card hover:shadow-md transition-shadow space-y-3 cursor-pointer" onClick={() => setSelectedOrderDetail(order)} data-testid={`card-order-${order.id}`}>
                     <div className="flex items-start justify-between">
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
@@ -1368,7 +1369,7 @@ export default function Home() {
                             variant="outline" 
                             size="sm" 
                             className={order.deliveryStatus === "Vydaná" ? "bg-emerald-50 text-emerald-700 border-emerald-100" : "bg-amber-50 text-amber-700 border-amber-100"}
-                            onClick={() => handleToggleDeliveryStatus(order)}
+                            onClick={(e) => { e.stopPropagation(); handleToggleDeliveryStatus(order); }}
                             disabled={isPending}
                           >
                             {order.deliveryStatus}
@@ -1377,7 +1378,7 @@ export default function Home() {
                             size="icon" 
                             variant="ghost" 
                             className="h-8 w-8 text-slate-400 hover:text-primary"
-                            onClick={() => handleEditOrder(order)}
+                            onClick={(e) => { e.stopPropagation(); handleEditOrder(order); }}
                             data-testid={`button-edit-order-${order.id}`}
                           >
                             <Edit2 className="w-4 h-4" />
@@ -1386,10 +1387,7 @@ export default function Home() {
                             size="icon" 
                             variant="ghost" 
                             className="h-8 w-8 text-slate-400 hover:text-destructive"
-                            onClick={() => {
-                              setOrderToDelete(order);
-                              setIsDeleteDialogOpen(true);
-                            }}
+                            onClick={(e) => { e.stopPropagation(); setOrderToDelete(order); setIsDeleteDialogOpen(true); }}
                             data-testid={`button-delete-order-${order.id}`}
                           >
                             <Trash2 className="w-4 h-4" />
@@ -1412,7 +1410,7 @@ export default function Home() {
                       <div className="space-y-2">
                         <p className="text-[10px] font-bold uppercase text-slate-400">Položky</p>
                         <ul className="divide-y divide-slate-200">
-                          {order.products.map((p: any, i: number) => (
+                          {order.products.filter((p: any) => Number(p.quantity) > 0).map((p: any, i: number) => (
                             <li key={i} className="text-sm flex justify-between gap-4 py-2">
                               <span className="text-slate-700 font-medium" data-testid={`text-product-${order.id}-${i}`}>
                                 {p.quantity}x {p.name}
@@ -1441,6 +1439,77 @@ export default function Home() {
             <Button onClick={() => setIsOrdersOverviewOpen(false)} className="w-full sm:w-auto">
               Zavrieť
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Order Detail Dialog */}
+      <Dialog open={!!selectedOrderDetail} onOpenChange={(open) => { if (!open) setSelectedOrderDetail(null); }}>
+        <DialogContent className="sm:max-w-lg bg-white">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl font-bold">
+              <Package className="w-5 h-5 text-primary" />
+              Objednávka #{selectedOrderDetail?.orderNumber}
+            </DialogTitle>
+            <DialogDescription>{activeBranch} — {selectedDate}</DialogDescription>
+          </DialogHeader>
+          {selectedOrderDetail && (
+            <div className="py-2 space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase text-slate-400 mb-1">Zákazník</p>
+                  <p className="font-semibold text-slate-900">{selectedOrderDetail.customerName}</p>
+                  {selectedOrderDetail.customerPhone && (
+                    <p className="text-sm text-slate-500 flex items-center gap-1 mt-0.5"><Phone className="w-3 h-3" />{selectedOrderDetail.customerPhone}</p>
+                  )}
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase text-slate-400 mb-1">Status</p>
+                  <span className={`inline-block px-2 py-1 rounded-full text-xs font-bold ${selectedOrderDetail.deliveryStatus === "Vydaná" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700"}`}>
+                    {selectedOrderDetail.deliveryStatus}
+                  </span>
+                  <span className={`inline-block ml-2 px-2 py-1 rounded-full text-xs font-bold ${selectedOrderDetail.paymentStatus === "Paid" ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"}`}>
+                    {selectedOrderDetail.paymentStatus === "Paid" ? "Zaplatené" : "Nezaplatené"}
+                  </span>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-[10px] font-bold uppercase text-slate-400 mb-1">Typ</p>
+                  <p className="text-sm font-medium text-slate-700">{selectedOrderDetail.reportType === "Order" ? "Objednávka" : "Voľný predaj"}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-bold uppercase text-slate-400 mb-1">Čas</p>
+                  <p className="text-sm text-slate-500">{new Date(selectedOrderDetail.createdAt).toLocaleTimeString('sk-SK', { hour: '2-digit', minute: '2-digit' })}</p>
+                </div>
+              </div>
+              <div>
+                <p className="text-[10px] font-bold uppercase text-slate-400 mb-2">Položky</p>
+                <ul className="divide-y divide-slate-100 rounded-lg border bg-slate-50 overflow-hidden">
+                  {selectedOrderDetail.products.filter((p: any) => Number(p.quantity) > 0).map((p: any, i: number) => (
+                    <li key={i} className="flex justify-between items-start px-3 py-2 text-sm">
+                      <span className="font-medium text-slate-800">{p.quantity}× {p.name}</span>
+                      {p.note && <span className="text-slate-500 italic ml-2">({p.note})</span>}
+                    </li>
+                  ))}
+                  {selectedOrderDetail.products.filter((p: any) => Number(p.quantity) > 0).length === 0 && (
+                    <li className="px-3 py-2 text-sm text-slate-400 italic">Žiadne položky</li>
+                  )}
+                </ul>
+              </div>
+              {selectedOrderDetail.note && (
+                <div>
+                  <p className="text-[10px] font-bold uppercase text-slate-400 mb-1">Poznámka</p>
+                  <p className="text-sm text-slate-700 bg-slate-50 border rounded-lg p-3 italic">{selectedOrderDetail.note}</p>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { if (selectedOrderDetail) { handleEditOrder(selectedOrderDetail); setSelectedOrderDetail(null); } }} className="gap-2">
+              <Edit2 className="w-4 h-4" /> Upraviť
+            </Button>
+            <Button onClick={() => setSelectedOrderDetail(null)}>Zavrieť</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
