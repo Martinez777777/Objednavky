@@ -20,6 +20,7 @@ const iconMap: Record<string, LucideIcons.LucideIcon> = {
   "Výber prevádzky": LucideIcons.Store,
   "Import položiek": LucideIcons.FileDown,
   "Odhlásiť zariadenie": LucideIcons.LogOut,
+  "Informácie": LucideIcons.Info,
 };
 
 export function MinimalButton({ label, index, className, onClick, disabled, "data-testid": testId }: MinimalButtonProps) {

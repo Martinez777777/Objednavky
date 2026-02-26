@@ -3,9 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 const MENU_ITEMS = [
   { label: "Nová objednávka", icon: "PlusCircle", id: "new_order" },
   { label: "Prehľad objednávok", icon: "ClipboardList", id: "order_overview" },
-  { label: "Vydané objednávky", icon: "CheckCircle2", id: "delivered_orders" },
-  { label: "Nevydané objednávky", icon: "Clock", id: "pending_orders" },
   { label: "Objednávky na ODBYT", icon: "ShoppingCart", id: "sales_orders" },
+  { label: "Informácie", icon: "Info", id: "info" },
   { label: "Výber prevádzky", icon: "Store", id: "select_branch" },
   { label: "Import položiek", icon: "FileDown", id: "import_items" }
 ];
@@ -93,7 +92,6 @@ export default function Home() {
   const [orderToUpdateStatus, setOrderToUpdateStatus] = useState<any>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"Overview" | "Delivered" | "Undelivered">("Overview");
   const [overviewFilter, setOverviewFilter] = useState<"All" | "Delivered" | "Undelivered">("All");
 
   const filteredOrders = orders.filter(order => {
@@ -101,12 +99,8 @@ export default function Home() {
       (order.customerName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
       (order.orderNumber || "").toString().includes(searchQuery);
     
-    if (viewMode === "Delivered") return matchesSearch && order.deliveryStatus === "Vydaná";
-    if (viewMode === "Undelivered") return matchesSearch && order.deliveryStatus === "Nevydaná";
-    if (viewMode === "Overview") {
-      if (overviewFilter === "Delivered") return matchesSearch && order.deliveryStatus === "Vydaná";
-      if (overviewFilter === "Undelivered") return matchesSearch && order.deliveryStatus === "Nevydaná";
-    }
+    if (overviewFilter === "Delivered") return matchesSearch && order.deliveryStatus === "Vydaná";
+    if (overviewFilter === "Undelivered") return matchesSearch && order.deliveryStatus === "Nevydaná";
     return matchesSearch;
   });
 
@@ -211,8 +205,6 @@ export default function Home() {
 
     const dateRequiredActions = [
       "Prehľad objednávok", 
-      "Vydané objednávky", 
-      "Nevydané objednávky", 
       "Objednávky na ODBYT"
     ];
 
@@ -288,14 +280,12 @@ export default function Home() {
       return;
     }
 
-    if (pendingAction === "Prehľad objednávok" || pendingAction === "Vydané objednávky" || pendingAction === "Nevydané objednávky") {
+    if (pendingAction === "Prehľad objednávok") {
       setIsPending(true);
       try {
         const fetchedOrders = await getOrders(activeBranch!, date);
         setOrders(fetchedOrders);
-        if (pendingAction === "Prehľad objednávok") { setViewMode("Overview"); setOverviewFilter("All"); }
-        else if (pendingAction === "Vydané objednávky") setViewMode("Delivered");
-        else if (pendingAction === "Nevydané objednávky") setViewMode("Undelivered");
+        setOverviewFilter("All");
         setIsOrdersOverviewOpen(true);
       } catch (error: any) {
         toast({
@@ -1126,7 +1116,7 @@ export default function Home() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-2xl font-bold">
               <Package className="w-6 h-6 text-primary" />
-              {viewMode === "Overview" ? "Prehľad objednávok" : viewMode === "Delivered" ? "Vydané objednávky" : "Nevydané objednávky"} - {selectedDate}
+              Prehľad objednávok - {selectedDate}
             </DialogTitle>
             <DialogDescription>
               {activeBranch}
@@ -1144,8 +1134,7 @@ export default function Home() {
               />
             </div>
 
-            {viewMode === "Overview" && (
-              <div className="flex gap-2">
+            <div className="flex gap-2">
                 <Button
                   variant={overviewFilter === "All" ? "default" : "outline"}
                   size="sm"
@@ -1173,8 +1162,7 @@ export default function Home() {
                 >
                   Nevydané
                 </Button>
-              </div>
-            )}
+            </div>
 
             {filteredOrders.length === 0 ? (
               <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed">
