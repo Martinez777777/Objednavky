@@ -291,3 +291,24 @@ export async function submitOrder(branch: string, date: string, orderData: any) 
     throw err;
   }
 }
+
+export async function getInfoText(): Promise<string> {
+  const url = `${FIRESTORE_BASE_URL}/Global/Informacie?key=${FIREBASE_API_KEY}`;
+  const response = await fetch(url);
+  if (!response.ok) return "";
+  const data = await response.json();
+  return data.fields?.text?.stringValue || "";
+}
+
+export async function saveInfoText(text: string): Promise<void> {
+  const url = `${FIRESTORE_BASE_URL}/Global/Informacie?key=${FIREBASE_API_KEY}`;
+  const response = await fetch(url, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields: { text: { stringValue: text } } }),
+  });
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(`Firebase Error: ${errorData.error?.message || response.statusText}`);
+  }
+}

@@ -8,7 +8,7 @@ const MENU_ITEMS = [
   { label: "Výber prevádzky", icon: "Store", id: "select_branch" },
   { label: "Import položiek", icon: "FileDown", id: "import_items" }
 ];
-import { getAdminCode, getPrevadzky, importProducts, getDatumy, getProducts, getNextOrderNumber, submitOrder, getOrders, deleteOrder, updateOrder } from "@/lib/firebase";
+import { getAdminCode, getPrevadzky, importProducts, getDatumy, getProducts, getNextOrderNumber, submitOrder, getOrders, deleteOrder, updateOrder, getInfoText, saveInfoText } from "@/lib/firebase";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import { 
@@ -20,9 +20,10 @@ import {
   DialogDescription
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { LogOut, Check, Calendar, Plus, User, Phone, Package, Trash2, Edit2, Search } from "lucide-react";
+import { LogOut, Check, Calendar, Plus, User, Phone, Package, Trash2, Edit2, Search, Info, Pencil, Save, X } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -93,6 +94,12 @@ export default function Home() {
   const [isEditing, setIsEditing] = useState(false);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [overviewFilter, setOverviewFilter] = useState<"All" | "Delivered" | "Undelivered">("All");
+  const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
+  const [infoText, setInfoText] = useState("");
+  const [infoEditStep, setInfoEditStep] = useState<"view" | "admin" | "edit">("view");
+  const [infoAdminInput, setInfoAdminInput] = useState("");
+  const [infoEditText, setInfoEditText] = useState("");
+  const [isInfoSaving, setIsInfoSaving] = useState(false);
 
   const filteredOrders = orders.filter(order => {
     const matchesSearch = 
@@ -537,12 +544,79 @@ export default function Home() {
       return;
     }
 
+    if (label === "Informácie") {
+      setIsPending(true);
+      try {
+        const text = await getInfoText();
+        setInfoText(text);
+        setInfoEditStep("view");
+        setInfoAdminInput("");
+        setInfoEditText(text);
+        setIsInfoDialogOpen(true);
+      } catch (error: any) {
+        toast({
+          title: "Chyba",
+          description: "Nepodarilo sa načítať informácie.",
+          variant: "destructive",
+        });
+      } finally {
+        setIsPending(false);
+      }
+      return;
+    }
+
     setIsPending(true);
     toast({
       title: "Úspech",
       description: `Akcia "${label}"${date ? ` pre dátum ${date}` : ""} bola zaznamenaná.`,
     });
     setIsPending(false);
+  };
+
+  const verifyInfoAdminCode = async () => {
+    setIsPending(true);
+    try {
+      const correctCode = await getAdminCode();
+      if (String(infoAdminInput).trim() === String(correctCode).trim()) {
+        setInfoEditStep("edit");
+        setInfoAdminInput("");
+      } else {
+        toast({
+          title: "Nesprávny kód",
+          description: "Zadaný admin kód nie je správny.",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      toast({
+        title: "Chyba",
+        description: "Nepodarilo sa overiť admin kód.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPending(false);
+    }
+  };
+
+  const handleSaveInfoText = async () => {
+    setIsInfoSaving(true);
+    try {
+      await saveInfoText(infoEditText);
+      setInfoText(infoEditText);
+      setInfoEditStep("view");
+      toast({
+        title: "Uložené",
+        description: "Text bol úspešne uložený.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Chyba",
+        description: "Nepodarilo sa uložiť text.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsInfoSaving(false);
+    }
   };
 
   const verifyAdminCode = async () => {
@@ -1262,6 +1336,117 @@ export default function Home() {
           
           <DialogFooter>
             <Button onClick={() => setIsOrdersOverviewOpen(false)} className="w-full sm:w-auto">
+              Zavrieť
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Informácie Dialog */}
+      <Dialog open={isInfoDialogOpen} onOpenChange={(open) => {
+        if (!open) { setIsInfoDialogOpen(false); setInfoEditStep("view"); setInfoAdminInput(""); }
+      }}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto bg-white">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-2xl font-bold">
+              <Info className="w-6 h-6 text-primary" />
+              Informácie
+            </DialogTitle>
+            <DialogDescription>{activeBranch}</DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4 space-y-4">
+
+            {/* VIEW MODE */}
+            {infoEditStep === "view" && (
+              <>
+                <div className="min-h-[120px] rounded-xl border bg-slate-50 p-4 text-slate-800 text-base whitespace-pre-wrap leading-relaxed">
+                  {infoText.trim() ? infoText : <span className="text-slate-400 italic">Žiadny text.</span>}
+                </div>
+                <Button
+                  variant="outline"
+                  className="flex items-center gap-2"
+                  onClick={() => setInfoEditStep("admin")}
+                  data-testid="button-info-edit"
+                >
+                  <Pencil className="w-4 h-4" />
+                  Upraviť
+                </Button>
+              </>
+            )}
+
+            {/* ADMIN CODE STEP */}
+            {infoEditStep === "admin" && (
+              <div className="space-y-4">
+                <p className="text-slate-600 text-sm">Pre úpravu textu zadajte admin kód:</p>
+                <div className="space-y-2">
+                  <Label htmlFor="info-admin-code">Admin kód</Label>
+                  <Input
+                    id="info-admin-code"
+                    type="password"
+                    placeholder="Zadajte admin kód..."
+                    value={infoAdminInput}
+                    onChange={(e) => setInfoAdminInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && verifyInfoAdminCode()}
+                    data-testid="input-info-admin-code"
+                    autoFocus
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={verifyInfoAdminCode}
+                    disabled={isPending || !infoAdminInput.trim()}
+                    data-testid="button-info-admin-confirm"
+                  >
+                    {isPending ? "Overujem..." : "Potvrdiť"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => { setInfoEditStep("view"); setInfoAdminInput(""); }}
+                    data-testid="button-info-admin-cancel"
+                  >
+                    <X className="w-4 h-4 mr-1" />
+                    Zrušiť
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* EDIT MODE */}
+            {infoEditStep === "edit" && (
+              <div className="space-y-4">
+                <Textarea
+                  value={infoEditText}
+                  onChange={(e) => setInfoEditText(e.target.value)}
+                  placeholder="Zadajte text informácií..."
+                  className="min-h-[200px] text-base leading-relaxed resize-y"
+                  data-testid="textarea-info-edit"
+                  autoFocus
+                />
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleSaveInfoText}
+                    disabled={isInfoSaving}
+                    data-testid="button-info-save"
+                  >
+                    <Save className="w-4 h-4 mr-2" />
+                    {isInfoSaving ? "Ukladám..." : "Uložiť"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => { setInfoEditStep("view"); setInfoEditText(infoText); }}
+                    data-testid="button-info-cancel"
+                  >
+                    <X className="w-4 h-4 mr-1" />
+                    Zrušiť
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsInfoDialogOpen(false)} className="w-full sm:w-auto">
               Zavrieť
             </Button>
           </DialogFooter>
