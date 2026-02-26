@@ -1021,7 +1021,7 @@ export default function Home() {
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase text-slate-400 tracking-wider">Hlásenie</span>
-                <span className="text-slate-700">{reportType}</span>
+                <span className="text-slate-700">{reportType === "Order" ? "Objednávka" : reportType === "FreeSale" ? "Voľný predaj" : reportType}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase text-slate-400 tracking-wider">Dátum</span>
